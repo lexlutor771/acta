@@ -1,0 +1,321 @@
+import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule, Router } from '@angular/router';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatListModule } from '@angular/material/list';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatBadgeModule } from '@angular/material/badge';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatChipsModule } from '@angular/material/chips';
+import { AuthService } from '../../core/auth/auth.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { UserRole } from '../../core/models/user.model';
+
+@Component({
+  selector: 'app-main-layout',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterModule,
+    MatSidenavModule,
+    MatToolbarModule,
+    MatListModule,
+    MatIconModule,
+    MatButtonModule,
+    MatBadgeModule,
+    MatMenuModule,
+    MatChipsModule
+  ],
+  template: `
+    <mat-sidenav-container class="layout-container">
+      <mat-sidenav #sidenav [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="app-sidebar" [fixedInViewport]="true">
+        <div class="sidebar-header">
+          <img src="/assets/logo-afi.png" alt="AFI Logo" class="logo-img">
+          <div class="sub-text">Control Documentario</div>
+          <div class="sub-text">Actas</div>
+          <div class="sub-text" style="color: #cfd3d7ff ;">Demo Version</div>
+        </div>
+
+        <mat-nav-list class="nav-list">
+          <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link" *ngIf="canSeeDashboard()">
+            <mat-icon matListItemIcon>dashboard</mat-icon>
+            <span matListItemTitle>Dashboard</span>
+          </a>
+
+          <a mat-list-item routerLink="/documents" routerLinkActive="active-link">
+            <mat-icon matListItemIcon>description</mat-icon>
+            <span matListItemTitle>Documentos</span>
+            <span matListItemMeta class="nav-badge" *ngIf="pendingCount() > 0">{{ pendingCount() }}</span>
+          </a>
+
+          <a mat-list-item routerLink="/documents/upload" routerLinkActive="active-link" *ngIf="isAdmin()">
+            <mat-icon matListItemIcon>cloud_upload</mat-icon>
+            <span matListItemTitle>Subir Acta</span>
+          </a>
+
+          <a mat-list-item routerLink="/signatures" routerLinkActive="active-link">
+            <mat-icon matListItemIcon>gesture</mat-icon>
+            <span matListItemTitle>Mis Firmas</span>
+          </a>
+
+          <a mat-list-item routerLink="/users" routerLinkActive="active-link" *ngIf="isAdmin()">
+            <mat-icon matListItemIcon>group</mat-icon>
+            <span matListItemTitle>Usuarios</span>
+          </a>
+        </mat-nav-list>
+
+        <div class="sidebar-footer">
+          <div class="version">v1.1.0-alpha</div>
+          <div class="company">2026 © comlar</div>
+        </div>
+      </mat-sidenav>
+
+      <mat-sidenav-content class="app-content">
+        <mat-toolbar class="app-toolbar">
+          <button mat-icon-button (click)="sidenav.toggle()" class="mobile-only">
+            <mat-icon>menu</mat-icon>
+          </button>
+          
+          <span class="spacer"></span>
+
+          <div class="user-profile">
+            <div class="user-info">
+              <span class="user-name">{{ currentUser()?.name }}</span>
+              <mat-chip-set>
+                <mat-chip class="role-chip">{{ currentUser()?.role }}</mat-chip>
+              </mat-chip-set>
+            </div>
+            
+            <button mat-icon-button [matMenuTriggerFor]="notifMenu">
+              <mat-icon [matBadge]="notificationCount()" matBadgeColor="warn" [matBadgeHidden]="notificationCount() === 0">notifications</mat-icon>
+            </button>
+            <mat-menu #notifMenu="matMenu" class="notification-menu">
+              <div class="menu-header">Notificaciones</div>
+              <div *ngIf="notifications().length === 0" class="empty-notif">No hay nuevas notificaciones</div>
+              <button mat-menu-item *ngFor="let n of notifications()">
+                <mat-icon [color]="n.type === 'error' ? 'warn' : 'primary'">info</mat-icon>
+                <span>{{ n.message }}</span>
+              </button>
+            </mat-menu>
+
+            <button mat-icon-button [matMenuTriggerFor]="userMenu">
+              <mat-icon>account_circle</mat-icon>
+            </button>
+            <mat-menu #userMenu="matMenu">
+              <button mat-menu-item disabled *ngIf="isMobile()" class="user-menu-header">
+                <div class="user-menu-info">
+                  <div class="user-name">{{ currentUser()?.name }}</div>
+                  <div class="role-chip">{{ currentUser()?.role }}</div>
+                </div>
+              </button>
+              <button mat-menu-item (click)="logout()">
+                <mat-icon>exit_to_app</mat-icon>
+                <span>Cerrar Sesión</span>
+              </button>
+            </mat-menu>
+          </div>
+        </mat-toolbar>
+
+        <main class="page-container">
+          <router-outlet></router-outlet>
+        </main>
+      </mat-sidenav-content>
+    </mat-sidenav-container>
+  `,
+  styles: [`
+    .layout-container {
+      height: 100vh;
+      background: var(--bg-color);
+    }
+    .app-sidebar {
+      width: 260px;
+      background: #ffffff;
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-header {
+      padding: 32px 24px;
+      background: linear-gradient(135deg, rgba(255, 122, 41, 0.05), transparent);
+    }
+    .logo-img {
+      height: 40px;
+      width: auto;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .sub-text {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+    .nav-list {
+      flex: 1;
+      padding-top: 16px;
+    }
+    .nav-list a {
+      margin: 2px 12px;
+      border-radius: 12px;
+      height: 44px;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+    .nav-list a:hover {
+      background: rgba(0, 0, 0, 0.02);
+      color: var(--text-color);
+    }
+    .active-link {
+      background: rgba(255, 122, 41, 0.08) !important;
+      color: var(--primary-color) !important;
+      font-weight: 600;
+    }
+    .active-link mat-icon {
+      color: var(--primary-color);
+    }
+    .nav-badge {
+      background: orange;
+      color: white !important;      
+      font-size: 10px;
+      padding: 0px 7px;
+      border-radius: 10px;
+      font-weight: 800;
+      margin-left: auto;
+      // box-shadow: 0 2px 4px rgba(225, 33, 33, 0.42);
+    }
+    .sidebar-footer {
+      padding: 20px 24px;
+      border-top: 1px solid var(--border-color);
+      font-size: 10px;
+      color: var(--text-muted);
+      opacity: 0.8;
+    }
+    .app-toolbar {
+      background: rgba(248, 250, 252, 0.8);
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(12px);
+      color: var(--text-color);
+    }
+    .spacer { flex: 1; }
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      margin-right: 8px;
+    }
+    .user-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-color);
+    }
+    .role-chip {
+      font-size: 9px !important;
+      min-height: 18px !important;
+      height: 18px !important;
+      background: #d97706; //var(--accent-color) !important;
+      color: white !important;
+      font-weight: 600 !important;
+    }
+
+    .user-menu-header {
+      pointer-events: none;
+      opacity: 1;
+    }
+    .user-menu-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .user-menu-header .user-name {
+      font-weight: 800;
+    }
+    .user-menu-header .role-chip {
+      font-size: 10px !important;
+      height: auto !important;
+      padding: 2px 8px !important;
+    }
+    .page-container {
+      padding: 32px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .notification-menu {
+      width: 320px;
+      border-radius: 16px;
+    }
+    .menu-header {
+      padding: 16px;
+      font-size: 13px;
+      font-weight: 800;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--accent-color);
+    }
+    .empty-notif {
+      padding: 32px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+      .app-sidebar { width: 280px; }
+      .mobile-only { display: block !important; }
+      .user-info { display: none; }
+      .page-container { padding: 16px; }
+      .app-toolbar { padding: 0 8px; }
+    }
+    .mobile-only { display: none; }
+  `]
+})
+export class MainLayoutComponent implements OnInit, OnDestroy {
+  private authService = inject(AuthService);
+  private notificationService = inject(NotificationService);
+  private router = inject(Router);
+
+  isMobile = signal(false);
+  private resizeObserver: any;
+
+  ngOnInit() {
+    this.checkScreenSize();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', () => this.checkScreenSize());
+    }
+  }
+
+  ngOnDestroy() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('resize', () => this.checkScreenSize());
+    }
+  }
+
+  private checkScreenSize() {
+    if (typeof window !== 'undefined') {
+      this.isMobile.set(window.innerWidth <= 768);
+    }
+  }
+
+  currentUser = this.authService.currentUser;
+  notifications = this.notificationService.notifications;
+  notificationCount = computed(() => this.notifications().filter(n => !n.read).length);
+  pendingCount = this.notificationService.pendingDocsCount;
+
+  isAdmin = this.authService.isAdmin;
+  isSigner = this.authService.isSigner;
+  isAuditor = this.authService.isAuditor;
+
+  canSeeDashboard(): boolean {
+    return this.isAdmin() || this.isAuditor();
+  }
+
+  logout() {
+    this.authService.logout();
+  }
+}

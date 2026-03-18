@@ -1,0 +1,196 @@
+@use '@angular/material' as mat;
+
+// Custom theme inspired by 'shelf'
+// Primary: Orange (#FF7A29)
+// Accent: Navy (#2D3250)
+// Light background context
+
+@include mat.core();
+
+// Define custom palettes
+$shelf-orange: (
+  50: #fff1e5,
+  100: #ffdcb3,
+  200: #ffc480,
+  300: #ffab4d,
+  400: #ff9826,
+  500: #ff7a29,
+  // Primary
+  600: #e66b25,
+  700: #cc5d21,
+  800: #b34e1d,
+  900: #994019,
+  contrast: (500: white,
+  )
+);
+
+$shelf-navy: (
+  50: #e6e7ea,
+  100: #b3b6bf,
+  200: #808493,
+  300: #4d5368,
+  400: #262c49,
+  500: #2d3250,
+  // Accent
+  600: #292e49,
+  700: #242942,
+  800: #1e253b,
+  900: #191f33,
+  contrast: (500: white,
+  )
+);
+
+$antigravity-primary: mat.m2-define-palette($shelf-orange, 500);
+$antigravity-accent: mat.m2-define-palette($shelf-navy, 500);
+$antigravity-warn: mat.m2-define-palette(mat.$m2-red-palette);
+
+$antigravity-theme: mat.m2-define-light-theme((color: (primary: $antigravity-primary,
+        accent: $antigravity-accent,
+        warn: $antigravity-warn,
+      ),
+      typography: mat.m2-define-typography-config($font-family: "'Sora', 'Inter', sans-serif",
+        $headline-1: mat.m2-define-typography-level(32px, 40px, 700),
+        $body-1: mat.m2-define-typography-level(14px, 22px, 400),
+      ),
+      density: -1,
+    ));
+
+@include mat.all-component-themes($antigravity-theme);
+
+// --- GLOBAL STYLES ---
+
+:root {
+  --primary-color: #ff7a29;
+  --primary-dark: #e66b25;
+  --accent-color: #2d3250;
+  --secondary-color: #3b3b98;
+  --bg-color: #f8fafc;
+  --surface-color: #ffffff;
+  --text-color: #1e293b;
+  --text-muted: #64748b;
+  --border-color: rgba(0, 0, 0, 0.1);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Sora', 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.antigravity-theme {
+  background-color: var(--bg-color);
+}
+
+// Custom Scrollbar
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 5px;
+  border: 2px solid var(--bg-color);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+// Utility classes
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+// Angular Material Overrides
+.mat-mdc-card {
+  background-color: var(--surface-color) !important;
+  border-radius: 16px !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+.mat-mdc-raised-button.mat-primary {
+  border-radius: 12px !important;
+  padding: 8px 24px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px !important;
+}
+
+.error-snackbar {
+  --mdc-snackbar-container-color: #ef4444;
+  --mdc-snackbar-label-text-color: white;
+}
+
+.success-snackbar {
+  --mdc-snackbar-container-color: #22c55e;
+  --mdc-snackbar-label-text-color: white;
+}
+
+// Layout utilities
+.flex-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-2 {
+  gap: 8px;
+}
+
+.gap-4 {
+  gap: 16px;
+}
+
+.p-4 {
+  padding: 16px;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.m-0 {
+  margin: 0;
+}
