@@ -67,7 +67,7 @@ import { UserRole } from '../../core/models/user.model';
         </mat-nav-list>
 
         <div class="sidebar-footer">
-          <div class="version">v1.1.0-alpha</div>
+          <div class="version">v1.1.0-beta</div>
           <div class="company">2026 © comlar</div>
         </div>
       </mat-sidenav>
