@@ -1,5 +1,6 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { map } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -95,7 +96,7 @@ import { SignatureImage } from '../../../core/models/signature.model';
                         <div class="badge" *ngIf="sig.id === mySignature()?.id"><mat-icon>check</mat-icon></div>
                       </div>
                     </div>
-                    <div class="actions">
+                    <div class="actions" *ngIf="isAdmin()">
                       <button mat-stroked-button (click)="step.set(2)">
                         <mat-icon>add</mat-icon> NUEVA FIRMA
                       </button>
@@ -297,6 +298,8 @@ export class DocumentSignComponent implements OnInit {
   step = signal(1);
   loading = signal(false);
 
+  isAdmin = computed(() => this.auth.isAdmin());
+
   selectedPosition = signal<{ x: number, y: number, page: number } | null>(null);
   signatureScale = signal<number>(1);
 
@@ -308,7 +311,9 @@ export class DocumentSignComponent implements OnInit {
 
     const userId = this.auth.currentUserId();
     if (userId) {
-      this.sigService.getSignaturesByUser(userId).subscribe(sigs => {
+      this.sigService.getSignaturesByUser(userId).pipe(
+        map(sigs => sigs.filter(s => s.isActive))
+      ).subscribe(sigs => {
         this.userSignatures.set(sigs);
         if (sigs.length > 0) {
           this.mySignature.set(sigs[0]);

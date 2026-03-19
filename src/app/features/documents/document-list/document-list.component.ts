@@ -9,6 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DocumentsState } from '../../../documents.state';
 import { AuthService } from '../../../core/auth/auth.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
@@ -28,6 +29,7 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
+    MatProgressSpinnerModule,
     StatusBadgeComponent,
     DateFormatPipe
   ],
@@ -58,8 +60,13 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
         </div>
       </div>
 
-      <div class="table-wrapper glass-panel">
-        <table mat-table [dataSource]="dataSource" matSort>
+      <div class="table-wrapper glass-panel shadow-premium">
+        <div class="loader-overlay" *ngIf="isLoading()">
+          <mat-spinner diameter="50"></mat-spinner>
+          <p>Sincronizando expedientes...</p>
+        </div>
+
+        <table mat-table [dataSource]="dataSource" matSort *ngIf="!isLoading()">
           
           <ng-container matColumnDef="documentCode">
             <th mat-header-cell *matHeaderCellDef mat-sort-header> Código </th>
@@ -156,6 +163,30 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
     .search-field { width: 340px; }
     ::ng-deep .search-field .mat-mdc-text-field-wrapper { height: 48px; border-radius: 12px; }
     ::ng-deep .search-field .mat-mdc-form-field-infix { padding-top: 12px; padding-bottom: 12px; }
+    
+    .shadow-premium { position: relative; min-height: 400px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1) !important; }
+
+    .loader-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.85);
+      z-index: 10;
+      gap: 16px;
+      border-radius: 20px;
+    }
+    .loader-overlay p {
+      font-weight: 800;
+      color: var(--accent-color);
+      letter-spacing: 0.5px;
+      font-size: 14px;
+    }
 
     .table-wrapper { overflow: auto; padding: 8px; }
     table { width: 100%; background: transparent !important; }
@@ -189,6 +220,7 @@ export class DocumentListComponent implements OnInit, AfterViewInit {
   displayedColumns: string[] = ['documentCode', 'title', 'status', 'progress', 'createdAt', 'actions'];
   dataSource = new MatTableDataSource<any>([]);
   isAdmin = this.auth.isAdmin;
+  isLoading = computed(() => this.state.loading());
 
   constructor() {
     effect(() => {

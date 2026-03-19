@@ -1,44 +1,116 @@
-import { Injectable, inject } from '@angular/core';
-import { Observable, of, delay } from 'rxjs';
+import { Injectable } from '@angular/core';
+import { Observable, from, throwError } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { User, UserRole } from '../models/user.model';
+import { supabase } from '../supabase.client';
+
+interface DbUser {
+    id: string;
+    code: string;
+    name: string;
+    email: string;
+    role: string;
+    is_active: boolean;
+    signature_image_id: string | null;
+    created_at: string;
+}
+
+function mapDbUser(row: DbUser): User {
+    return {
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        email: row.email,
+        role: row.role as UserRole,
+        isActive: row.is_active,
+        signatureImageId: row.signature_image_id ?? undefined,
+        createdAt: new Date(row.created_at)
+    };
+}
 
 @Injectable({
     providedIn: 'root'
 })
 export class UserService {
-    private mockUsers: User[] = [
-        { id: 'user-admin', code: '111111', name: 'Administrador General', email: 'admin@aei.com.cu', role: UserRole.ADMIN, isActive: true, createdAt: new Date() },
-        { id: 'user-signer', code: '222222', name: 'Mario Mendoza Garcia', email: 'mario.mendoza@aei.com.cu', role: UserRole.SIGNER, isActive: true, createdAt: new Date() },
-        { id: 'user-auditor', code: '333333', name: 'Auditor Externo', email: 'auditoria@cm.com.cu', role: UserRole.AUDITOR, isActive: true, createdAt: new Date() },
-        { id: 'user-2', code: '444444', name: 'Rafael Gabriel Villamizar', email: 'rafael@aei.com.cu', role: UserRole.SIGNER, isActive: true, createdAt: new Date() },
-        { id: 'user-3', code: '555555', name: 'Raudel Matos Roche', email: 'raudel@cm.com.cu', role: UserRole.SIGNER, isActive: true, createdAt: new Date() }
-    ];
 
     getUsers(): Observable<User[]> {
-        return of(this.mockUsers).pipe(delay(400));
+        return from(
+            supabase
+                .from('user')
+                .select('*')
+                .order('name')
+                .order('is_active')
+        ).pipe(
+            map(({ data, error }) => {
+                if (error) throw new Error(error.message);
+                return (data as DbUser[]).map(mapDbUser);
+            }),
+            catchError(err => throwError(() => err))
+        );
     }
 
     getUserById(id: string): Observable<User | null> {
-        return of(this.mockUsers.find(u => u.id === id) || null).pipe(delay(200));
+        return from(
+            supabase
+                .from('user')
+                .select('*')
+                .eq('id', id)
+                .limit(1)
+                .single()
+        ).pipe(
+            map(({ data, error }) => {
+                if (error || !data) return null;
+                return mapDbUser(data as DbUser);
+            }),
+            catchError(() => from([null]))
+        );
     }
 
     createUser(userData: Partial<User>): Observable<User> {
-        const newUser: User = {
-            ...userData as User,
-            id: `user-${Date.now()}`,
-            isActive: true,
-            createdAt: new Date()
+        const insert = {
+            code: userData.code,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role ?? UserRole.VIEWER,
+            is_active: true
         };
-        this.mockUsers.push(newUser);
-        return of(newUser).pipe(delay(500));
+
+        return from(
+            supabase
+                .from('user')
+                .insert(insert)
+                .select()
+                .single()
+        ).pipe(
+            map(({ data, error }) => {
+                if (error || !data) throw new Error(error?.message ?? 'Error al crear usuario');
+                return mapDbUser(data as DbUser);
+            }),
+            catchError(err => throwError(() => err))
+        );
     }
 
     updateUser(id: string, updates: Partial<User>): Observable<User> {
-        const index = this.mockUsers.findIndex(u => u.id === id);
-        if (index > -1) {
-            this.mockUsers[index] = { ...this.mockUsers[index], ...updates };
-            return of(this.mockUsers[index]).pipe(delay(300));
-        }
-        throw new Error('Usuario no encontrado');
+        const patch: Record<string, unknown> = {};
+        if (updates.name !== undefined) patch['name'] = updates.name;
+        if (updates.email !== undefined) patch['email'] = updates.email;
+        if (updates.role !== undefined) patch['role'] = updates.role;
+        if (updates.isActive !== undefined) patch['is_active'] = updates.isActive;
+        if (updates.signatureImageId !== undefined) patch['signature_image_id'] = updates.signatureImageId;
+
+        return from(
+            supabase
+                .from('user')
+                .update(patch)
+                .eq('id', id)
+                .select()
+                .single()
+        ).pipe(
+            map(({ data, error }) => {
+                if (error || !data) throw new Error(error?.message ?? 'Usuario no encontrado');
+                return mapDbUser(data as DbUser);
+            }),
+            catchError(err => throwError(() => err))
+        );
     }
 }

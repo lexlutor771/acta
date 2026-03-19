@@ -17,6 +17,7 @@ import { DocumentsState } from '../../../documents.state';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { DocumentService } from '../../../core/services/document.service';
 import { UserService } from '../../../core/services/user.service';
+import { DialogService } from '../../../core/services/dialog.service';
 import { User } from '../../../core/models/user.model';
 import { SignerStatus } from '../../../core/models/document.model';
 
@@ -293,6 +294,7 @@ export class DocumentUploadComponent {
   private userService = inject(UserService);
   private state = inject(DocumentsState);
   private router = inject(Router);
+  private dialogService = inject(DialogService);
 
   uploadForm = this.fb.group({
     title: ['', Validators.required],
@@ -370,12 +372,19 @@ export class DocumentUploadComponent {
   }
 
   deleteDocument(id: string) {
-    if (confirm('¿Está seguro de eliminar este documento?')) {
-      this.docService.deleteDocument(id).subscribe(() => {
-        this.state.loadDocuments();
-        if (this.editingDocId() === id) this.resetForm();
-      });
-    }
+    this.dialogService.confirm(
+      '¿Eliminar Documento?',
+      '¿Está seguro de eliminar este documento permanentemente?',
+      'Eliminar',
+      'Cancelar'
+    ).subscribe(confirmed => {
+      if (confirmed) {
+        this.docService.deleteDocument(id).subscribe(() => {
+          this.state.loadDocuments();
+          if (this.editingDocId() === id) this.resetForm();
+        });
+      }
+    });
   }
 
   resetForm() {

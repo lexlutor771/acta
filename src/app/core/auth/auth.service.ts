@@ -1,15 +1,40 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, of, tap, delay, throwError } from 'rxjs';
+import { Observable, from, throwError, tap } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
+import { signal, computed } from '@angular/core';
 import { User, UserRole } from '../models/user.model';
+import { supabase } from '../supabase.client';
+
+interface DbUser {
+    id: string;
+    code: string;
+    name: string;
+    email: string;
+    role: string;
+    is_active: boolean;
+    signature_image_id: string | null;
+    created_at: string;
+}
+
+function mapDbUser(row: DbUser): User {
+    return {
+        id: row.id,
+        code: row.code,
+        name: row.name,
+        email: row.email,
+        role: row.role as UserRole,
+        isActive: row.is_active,
+        signatureImageId: row.signature_image_id ?? undefined,
+        createdAt: new Date(row.created_at)
+    };
+}
 
 @Injectable({
     providedIn: 'root'
 })
 export class AuthService {
-    private http = inject(HttpClient);
-    private router = inject(Router);
+    private router: Router;
 
     private _currentUser = signal<User | null>(null);
 
@@ -18,87 +43,47 @@ export class AuthService {
     isAuthenticated = computed(() => !!this._currentUser());
     currentUserId = computed(() => this._currentUser()?.id ?? '');
 
-    isAdmin = computed(() => this._currentUser()?.role === UserRole.ADMIN);
-    isSigner = computed(() => this._currentUser()?.role === UserRole.SIGNER);
-    isAuditor = computed(() => this._currentUser()?.role === UserRole.AUDITOR);
-    isViewer = computed(() => this._currentUser()?.role === UserRole.VIEWER);
+    isAdmin    = computed(() => this._currentUser()?.role === UserRole.ADMIN);
+    isSigner   = computed(() => this._currentUser()?.role === UserRole.SIGNER);
+    isAuditor  = computed(() => this._currentUser()?.role === UserRole.AUDITOR);
+    isViewer   = computed(() => this._currentUser()?.role === UserRole.VIEWER);
 
-    constructor() {
-        // Check if user is stored in session/local storage for persistence (MOCK)
+    constructor(router: Router) {
+        this.router = router;
+        // Restore persisted session from localStorage
         const storedUser = localStorage.getItem('antigravity_user');
         if (storedUser) {
-            this._currentUser.set(JSON.parse(storedUser));
+            try {
+                this._currentUser.set(JSON.parse(storedUser));
+            } catch {
+                localStorage.removeItem('antigravity_user');
+            }
         }
     }
 
-    // Login with PIN logic (Mocking backend response)
+    /** PIN-based login: looks up user in Supabase by their 6-digit code */
     loginWithPin(pin: string): Observable<User> {
-        // Mock user mapping based on PINs specified in implementation plan
-        let mockUser: User | null = null;
+        const query = supabase
+            .from('user')
+            .select('*')
+            .eq('code', pin)
+            .eq('is_active', true)
+            .limit(1)
+            .single();
 
-        if (pin === '111111') {
-            mockUser = {
-                id: 'user-admin',
-                code: '111111',
-                name: 'Administrador General',
-                email: 'admin@aei.com.cu',
-                role: UserRole.ADMIN,
-                isActive: true,
-                createdAt: new Date()
-            };
-        } else if (pin === '222222') {
-            mockUser = {
-                id: 'user-signer',
-                code: '222222',
-                name: 'Mario Mendoza Garcia',
-                email: 'mario.mendoza@aei.com.cu',
-                role: UserRole.SIGNER,
-                isActive: true,
-                createdAt: new Date()
-            };
-        } else if (pin === '444444') {
-            mockUser = {
-                id: 'user-2',
-                code: '444444',
-                name: 'Rafael Gabriel Villamizar',
-                email: 'rafael@aei.com.cu',
-                role: UserRole.SIGNER,
-                isActive: true,
-                createdAt: new Date()
-            };
-        } else if (pin === '555555') {
-            mockUser = {
-                id: 'user-3',
-                code: '555555',
-                name: 'Raudel Matos Roche',
-                email: 'raudel@cm.com.cu',
-                role: UserRole.SIGNER,
-                isActive: true,
-                createdAt: new Date()
-            };
-        } else if (pin === '333333') {
-            mockUser = {
-                id: 'user-auditor',
-                code: '333333',
-                name: 'Auditor Externo',
-                email: 'auditoria@cm.com.cu',
-                role: UserRole.AUDITOR,
-                isActive: true,
-                createdAt: new Date()
-            };
-        }
-
-        if (mockUser) {
-            return of(mockUser).pipe(
-                delay(800), // Simulate network latency
-                tap(user => {
-                    this._currentUser.set(user);
-                    localStorage.setItem('antigravity_user', JSON.stringify(user));
-                })
-            );
-        } else {
-            return throwError(() => new Error('PIN inválido')).pipe(delay(800));
-        }
+        return from(query).pipe(
+            map(({ data, error }) => {
+                if (error || !data) {
+                    throw new Error('PIN inválido');
+                }
+                return mapDbUser(data as DbUser);
+            }),
+            tap(user => {
+                this._currentUser.set(user);
+                localStorage.setItem('antigravity_user', JSON.stringify(user));
+            }),
+            catchError(err => throwError(() => err instanceof Error ? err : new Error('PIN inválido')))
+        );
     }
 
     logout(): void {
@@ -108,7 +93,6 @@ export class AuthService {
     }
 
     refreshToken(): Observable<void> {
-        // Mock refresh
-        return of(undefined).pipe(delay(500));
+        return from(Promise.resolve()) as Observable<void>;
     }
 }
