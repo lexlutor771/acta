@@ -314,14 +314,52 @@ export class DocumentService {
         ).pipe(
             switchMap(({ data: updated, error }) => {
                 if (error) throw error;
-                // If we want to update signers too, it would be more complex (delete and re-insert or diff)
-                // For now just return the updated doc
-                return this.getDocumentById(id).pipe(
-                    map(d => { if (!d) throw new Error('Documento no encontrado'); return d; })
+                if (!data.assignedSigners) return of(updated);
+
+                return from(supabase.from('document_signers').select('user_id').eq('document_id', id)).pipe(
+                    switchMap(({ data: existing, error: err }) => {
+                        if (err) throw err;
+
+                        const existingIds = existing.map(e => e.user_id);
+                        const newSigners = data.assignedSigners;
+                        const newIds = newSigners.map((s: any) => s.userId);
+
+                        const toDelete = existingIds.filter(eId => !newIds.includes(eId));
+                        const toInsert = newSigners.filter((s: any) => !existingIds.includes(s.userId)).map((s: any) => ({
+                            document_id: id,
+                            user_id: s.userId,
+                            user_name: s.userName,
+                            empresa: s.empresa || '',
+                            signer_order: s.order,
+                            status: SignerStatus.PENDING
+                        }));
+                        const toUpdate = newSigners.filter((s: any) => existingIds.includes(s.userId));
+
+                        const ops = [];
+
+                        if (toDelete.length > 0) {
+                            ops.push(from(supabase.from('document_signers').delete().eq('document_id', id).in('user_id', toDelete)));
+                        }
+                        if (toInsert.length > 0) {
+                            ops.push(from(supabase.from('document_signers').insert(toInsert)));
+                        }
+                        if (toUpdate.length > 0) {
+                            toUpdate.forEach((s: any) => {
+                                ops.push(from(supabase.from('document_signers').update({ signer_order: s.order }).eq('document_id', id).eq('user_id', s.userId)));
+                            });
+                        }
+
+                        if (ops.length === 0) return of(updated);
+                        return forkJoin(ops).pipe(map(() => updated));
+                    })
                 );
             }),
+            switchMap(() => this.getDocumentById(id).pipe(
+                map(d => { if (!d) throw new Error('Documento no encontrado'); return d; })
+            )),
             catchError(err => this.handleError(err))
         );
+
     }
 
     markAsPrinted(id: string): Observable<Document> {
@@ -352,6 +390,23 @@ export class DocumentService {
                 if (error) throw error;
             }),
             catchError(err => this.handleError(err))
+        );
+    }
+
+    sendNotificationEmail(documentId: string): Observable<any> {
+        return from(
+            supabase.functions.invoke('send-email', {
+                body: { documentId }
+            })
+        ).pipe(
+            map(({ data, error }) => {
+                if (error) throw error;
+                return data;
+            }),
+            catchError(err => {
+                console.error('Error enviando notificación por correo:', err);
+                return throwError(() => err);
+            })
         );
     }
 }

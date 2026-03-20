@@ -22,6 +22,7 @@ import { UserService } from '../../../core/services/user.service';
 import { DialogService } from '../../../core/services/dialog.service';
 import { User } from '../../../core/models/user.model';
 import { SignerStatus, DocumentStatus } from '../../../core/models/document.model';
+import { map } from 'rxjs/operators';
 
 @Component({
   selector: 'app-document-upload',
@@ -482,14 +483,29 @@ export class DocumentUploadComponent {
     };
 
     const action = this.editingDocId()
-      ? this.docService.updateDocument(this.editingDocId()!, docData)
-      : this.docService.uploadDocument(docData, this.selectedFile!);
+      ? this.docService.updateDocument(this.editingDocId()!, docData).pipe(
+          // For simplicity, updateDocument doesn't currently return the ID cleanly unless modified, 
+          // but we know the editingDocId.
+          map(() => this.editingDocId()!)
+        )
+      : this.docService.uploadDocument(docData, this.selectedFile!).pipe(
+          map(doc => doc.id)
+        );
 
     action.subscribe({
-      next: () => {
+      next: (docId) => {
+        // If status is PENDING, trigger the email
+        if (this.uploadForm.get('status')?.value === 'PENDING') {
+          this.docService.sendNotificationEmail(docId).subscribe({
+            next: () => this.snackBar.open('Documento subido y notificaciones enviadas', 'Cerrar', { duration: 4000 }),
+            error: () => this.snackBar.open('Documento subido, pero hubo un error enviando notificaciones', 'Cerrar', { duration: 4000 })
+          });
+        } else {
+          const msg = this.editingDocId() ? 'Documento actualizado' : 'Documento subido correctamente';
+          this.snackBar.open(msg, 'Cerrar', { duration: 3000 });
+        }
+
         this.state.loadDocuments();
-        const msg = this.editingDocId() ? 'Documento actualizado' : 'Documento subido correctamente';
-        this.snackBar.open(msg, 'Cerrar', { duration: 3000 });
         this.resetForm();
         if (!this.editingDocId()) this.router.navigate(['/documents']);
       }

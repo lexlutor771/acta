@@ -476,7 +476,7 @@ export class UserListComponent implements OnInit {
           this.editingUserId.set(null);
           this.loadUsers();
         },
-        error: (err) => this.showError('Error al actualizar usuario')
+        error: (err: any) => this.showError(`Error al actualizar usuario: ${err.message || err}`)
       });
     } else {
       // Create new
@@ -487,7 +487,7 @@ export class UserListComponent implements OnInit {
           this.userForm.reset({ isActive: true });
           this.loadUsers();
         },
-        error: (err: any) => this.showError(err.message || 'Error al crear usuario')
+        error: (err: any) => this.showError(`Error al crear usuario: ${err.message || err}`)
       });
     }
   }
@@ -514,7 +514,7 @@ export class UserListComponent implements OnInit {
             this.snackBar.open('Usuario desactivado', 'Cerrar', { duration: 3000 });
             this.loadUsers();
           },
-          error: () => this.showError('Error al desactivar usuario')
+          error: (err: any) => this.showError(`Error al desactivar usuario: ${err.message || err}`)
         });
       }
     });

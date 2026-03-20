@@ -64,6 +64,11 @@ import { UserRole } from '../../core/models/user.model';
             <mat-icon matListItemIcon>group</mat-icon>
             <span matListItemTitle>Usuarios</span>
           </a>
+
+          <a mat-list-item routerLink="/settings" routerLinkActive="active-link" *ngIf="isAdmin()">
+            <mat-icon matListItemIcon>settings</mat-icon>
+            <span matListItemTitle>Configuración</span>
+          </a>
         </mat-nav-list>
 
         <div class="sidebar-footer">

@@ -58,10 +58,12 @@ import { signal } from '@angular/core';
         <section class="activity-section glass-panel">
           <div class="section-header">
             <h3>Actividad Reciente</h3>
-            <button mat-button color="primary">VER TODO</button>
+            <button mat-button color="primary" (click)="toggleActivity()" *ngIf="recentActivity().length > 5">
+              {{ showAllActivity() ? 'VER MENOS' : 'VER TODO' }}
+            </button>
           </div>
           <div class="activity-list">
-            <div class="activity-item" *ngFor="let activity of recentActivity()">
+            <div class="activity-item" *ngFor="let activity of displayedActivity()">
               <div class="activity-icon" [ngClass]="getActivityClass(activity.action)">
                 <mat-icon>{{ getActivityIcon(activity.action) }}</mat-icon>
               </div>
@@ -183,8 +185,20 @@ export class DashboardComponent {
   pendingDocs = computed(() => this.state.list().filter(d => d.status === 'PENDING' || d.status === 'IN_PROGRESS').length);
   completedDocs = this.state.completedCount;
   recentActivity = this.state.recentActivity;
+  
+  showAllActivity = signal(false);
+  displayedActivity = computed(() => {
+    return this.showAllActivity() 
+      ? this.recentActivity() 
+      : this.recentActivity().slice(0, 5);
+  });
+
   isAdmin = this.auth.isAdmin;
   activeUsers = signal(0);
+
+  toggleActivity() {
+    this.showAllActivity.set(!this.showAllActivity());
+  }
 
   ngOnInit() {
     this.state.loadDocuments();
