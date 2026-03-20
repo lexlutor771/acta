@@ -4,12 +4,13 @@ import { PdfViewerModule, PdfViewerComponent as Ng2PdfViewer } from 'ng2-pdf-vie
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { DocumentSigner, SignatureSlot } from '../../../core/models/document.model';
+import { DragDropModule, CdkDragEnd } from '@angular/cdk/drag-drop';
+import { DocumentSigner, SignatureSlot, SignaturePlacement } from '../../../core/models/document.model';
 
 @Component({
   selector: 'app-pdf-viewer',
   standalone: true,
-  imports: [CommonModule, PdfViewerModule, MatProgressBarModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, PdfViewerModule, MatProgressBarModule, MatButtonModule, MatIconModule, DragDropModule],
   template: `
     <div class="pdf-container">
       <div class="pdf-controls" *ngIf="showControls">
@@ -51,7 +52,26 @@ import { DocumentSigner, SignatureSlot } from '../../../core/models/document.mod
 
           <!-- Signature Overlays (Assigned) - Relative to PDF content -->
           <ng-container *ngFor="let signer of signatures">
-              <div *ngIf="signer.pageNumber === page && signer.status === 'SIGNED'"
+              <!-- Render individual placements if they exist -->
+              <ng-container *ngFor="let p of signer.placements; let i = index">
+                <div *ngIf="p.page === page && (signer.status === 'SIGNED' || signer.userId === 'PREVIEW')"
+                     class="signature-overlay"
+                     [class.movable]="signer.userId === 'PREVIEW'"
+                     [class.selected]="signer.userId === 'PREVIEW' && $any(signer).selectedIndex === i"
+                     cdkDrag
+                     [cdkDragDisabled]="signer.userId !== 'PREVIEW'"
+                     (cdkDragEnded)="onSignatureDropped($event, signer, i)"
+                     (click)="onSignatureClick($event, i, signer)"
+                     [style.left.%]="p.x"
+                     [style.top.%]="p.y"
+                     [style.transform]="'translate(-50%, -50%) scale(' + (p.scale || 1) + ')'">
+                  <img [src]="signer.signatureImageId" alt="Firma">
+                  <div class="signature-info">{{ signer.userName }}</div>
+                </div>
+              </ng-container>
+
+              <!-- Fallback to single position for backward compatibility if no placements -->
+              <div *ngIf="(!signer.placements || signer.placements.length === 0) && signer.pageNumber === page && signer.status === 'SIGNED'"
                    class="signature-overlay"
                    [style.left.%]="signer.positionX"
                    [style.top.%]="signer.positionY"
@@ -63,7 +83,26 @@ import { DocumentSigner, SignatureSlot } from '../../../core/models/document.mod
 
           <!-- Extra Signatures (Multiple signatures per user) -->
           <ng-container *ngFor="let extra of extraSignatures">
-              <div *ngIf="extra.pageNumber === page"
+              <!-- Render individual placements if they exist -->
+              <ng-container *ngFor="let p of extra.placements; let i = index">
+                <div *ngIf="p.page === page"
+                     class="signature-overlay"
+                     [class.movable]="extra.userId === 'PREVIEW'"
+                     [class.selected]="extra.userId === 'PREVIEW' && $any(extra).selectedIndex === i"
+                     cdkDrag
+                     [cdkDragDisabled]="extra.userId !== 'PREVIEW'"
+                     (cdkDragEnded)="onSignatureDropped($event, extra, i)"
+                     (click)="onSignatureClick($event, i, extra)"
+                     [style.left.%]="p.x"
+                     [style.top.%]="p.y"
+                     [style.transform]="'translate(-50%, -50%) scale(' + (p.scale || 1) + ')'">
+                  <img [src]="extra.signatureImageId" alt="Firma Extra">
+                  <div class="signature-info">{{ extra.userName }}</div>
+                </div>
+              </ng-container>
+
+              <!-- Fallback to single position for extra if no placements -->
+              <div *ngIf="(!extra.placements || extra.placements.length === 0) && extra.pageNumber === page"
                    class="signature-overlay"
                    [style.left.%]="extra.positionX"
                    [style.top.%]="extra.positionY"
@@ -184,7 +223,11 @@ import { DocumentSigner, SignatureSlot } from '../../../core/models/document.mod
       display: flex;
       flex-direction: column;
       align-items: center;
+      transition: outline 0.2s, box-shadow 0.2s;
     }
+    .signature-overlay.selected { outline: 2px solid var(--primary-color); outline-offset: 4px; border-radius: 4px; background: rgba(255, 122, 41, 0.05); }
+    .signature-overlay.movable { pointer-events: auto; cursor: move; }
+    .signature-overlay.movable:active { cursor: grabbing; }
     .signature-overlay img {
       max-width: 140px;
       max-height: 70px;
@@ -257,6 +300,8 @@ export class PdfViewerComponent implements OnChanges {
 
   @Output() pageChanged = new EventEmitter<number>();
   @Output() coordinateSelected = new EventEmitter<{ x: number, y: number, page: number }>();
+  @Output() signatureMoved = new EventEmitter<{ index: number, x: number, y: number }>();
+  @Output() signatureSelected = new EventEmitter<number>();
 
   page = 1;
   totalPages = 0;
@@ -300,11 +345,54 @@ export class PdfViewerComponent implements OnChanges {
 
   onDropTargetClick(event: MouseEvent) {
     if (!this.signingMode) return;
+    
+    // Prevent adding new signature if clicking on an existing one
+    const target = event.target as HTMLElement;
+    if (target.closest('.signature-overlay')) return;
 
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * 100;
     const y = ((event.clientY - rect.top) / rect.height) * 100;
 
     this.coordinateSelected.emit({ x, y, page: this.page });
+  }
+
+  onSignatureDropped(event: CdkDragEnd, signer: DocumentSigner, index: number) {
+    if (signer.userId !== 'PREVIEW') return;
+
+    const element = event.source.getRootElement();
+    const rect = element.parentElement?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Get current position from styles (which were calculated by % but now cdkDrag added transform)
+    // We need to calculate the NEW % based on the final position.
+    const transform = event.source.getFreeDragPosition();
+    
+    // Get original % positions
+    const placement = (signer.placements || [])[index];
+    if (!placement) return;
+
+    // Convert % to pixels
+    const originalXpx = (placement.x / 100) * rect.width;
+    const originalYpx = (placement.y / 100) * rect.height;
+
+    // New pixels = original + transform
+    const newXpx = originalXpx + transform.x;
+    const newYpx = originalYpx + transform.y;
+
+    // Convert back to %
+    const newXpct = (newXpx / rect.width) * 100;
+    const newYpct = (newYpx / rect.height) * 100;
+
+    // Reset transform so the % style takes over again
+    event.source.reset();
+
+    this.signatureMoved.emit({ index, x: newXpct, y: newYpct });
+  }
+
+  onSignatureClick(event: MouseEvent, index: number, signer: DocumentSigner) {
+    if (signer.userId !== 'PREVIEW') return;
+    event.stopPropagation(); // Avoid adding a new signature at the same spot
+    this.signatureSelected.emit(index);
   }
 }

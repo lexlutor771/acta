@@ -18,6 +18,7 @@ import { SignaturePadComponent } from '../../../shared/components/signature-pad/
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
 import { SignatureImage } from '../../../core/models/signature.model';
+import { DocumentStatus, SignaturePlacement } from '../../../core/models/document.model';
 
 @Component({
   selector: 'app-document-sign',
@@ -64,19 +65,12 @@ import { SignatureImage } from '../../../core/models/signature.model';
         <div class="pdf-panel">
           <app-pdf-viewer 
             [src]="doc()!.currentPdfUrl" 
-            [signatures]="doc()!.assignedSigners"
-            [extraSignatures]="doc()!.extraSignatures || []"
+            [signatures]="filteredAssignedSigners()"
+            [extraSignatures]="previewSignatures()"
             [signingMode]="step() === 3"
-            (coordinateSelected)="onPositionSelected($event)">
-            
-            <!-- Draggable Ghost for new signature -->
-            <div *ngIf="step() === 3 && selectedPosition()" 
-                 class="selected-position-ghost"
-                 [style.left.%]="selectedPosition()!.x"
-                 [style.top.%]="selectedPosition()!.y"
-                 [style.transform]="'translate(-50%, -50%) scale(' + signatureScale() + ')'">
-              <img [src]="mySignature()?.imageUrl" alt="Ghost Signature">
-            </div>
+            (coordinateSelected)="onPositionSelected($event)"
+            (signatureMoved)="onSignatureMoved($event)"
+            (signatureSelected)="selectPlacement($event)">
           </app-pdf-viewer>
         </div>
 
@@ -119,15 +113,41 @@ import { SignatureImage } from '../../../core/models/signature.model';
                   <div class="step-num">3</div>
                   <div class="step-content">
                     <h4>Posicionar en PDF</h4>
-                    <p class="instruction">Haz clic sobre el visor PDF para estampar la firma seleccionada.</p>
-                    <div class="coords-box" *ngIf="selectedPosition()">
-                      <mat-icon color="primary">location_on</mat-icon>
-                      <span>Página {{ selectedPosition()!.page }}, X: {{ selectedPosition()!.x.toFixed(1) }}%, Y: {{ selectedPosition()!.y.toFixed(1) }}%</span>
+                    <p class="instruction">Haz clic sobre el visor PDF para estampar la firma. Puedes agregar varias firmas en diferentes páginas.</p>
+                    
+                    <div class="placements-list" *ngIf="placements().length > 0">
+                      <div class="placement-item" *ngFor="let p of placements(); let i = index" 
+                           [class.selected]="selectedPlacementIndex() === i"
+                           (click)="selectPlacement(i)">
+                        <mat-icon color="primary">location_on</mat-icon>
+                        <div class="p-info">
+                          <span>Pág {{ p.page }}, X: {{ p.x.toFixed(0) }}%, Y: {{ p.y.toFixed(0) }}%</span>
+                          <small>Escala: {{ (p.scale * 100).toFixed(0) }}%</small>
+                        </div>
+                        <button mat-icon-button (click)="removePlacement(i); $event.stopPropagation()" color="warn" matTooltip="Eliminar esta firma">
+                          <mat-icon>delete_outline</mat-icon>
+                        </button>
+                      </div>
                     </div>
 
-                    <div class="scale-control" *ngIf="selectedPosition()">
-                      <label>Tamaño de firma: {{ (signatureScale() * 100) | number:'1.0-0' }}%</label>
+                    <div class="scale-control" *ngIf="placements().length > 0 || lastPos()">
+                      <div class="scale-header">
+                        <label>Tamaño de firma: {{ (signatureScale() * 100) | number:'1.0-0' }}%</label>
+                        <mat-icon matTooltip="Ajusta el tamaño de la firma seleccionada o de la próxima que agregues">help_outline</mat-icon>
+                      </div>
                       <input type="range" class="scale-slider" min="0.3" max="2" step="0.1" [value]="signatureScale()" (input)="onScaleChange($event)">
+                      <p class="hint" *ngIf="selectedPlacementIndex() !== null">Redimensionando firma seleccionada</p>
+                      <p class="hint" *ngIf="selectedPlacementIndex() === null">Afecta a la próxima firma que coloques</p>
+                    </div>
+
+                    <div class="empty-placements" *ngIf="placements().length === 0">
+                      <mat-icon>touch_app</mat-icon>
+                      <p>Haz clic en el documento para firmar</p>
+                    </div>
+
+                    <div class="printed-warning" *ngIf="doc()?.status === 'PRINTED'">
+                      <mat-icon>lock</mat-icon>
+                      <p>Documento IMPRESO. Ya no se pueden realizar cambios.</p>
                     </div>
                   </div>
                 </div>
@@ -283,6 +303,29 @@ import { SignatureImage } from '../../../core/models/signature.model';
       .comment-input { flex-direction: column; align-items: stretch; }
       .comment-input button { width: 100%; margin-top: 8px; }
     }
+
+    .placements-list { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; max-height: 250px; overflow-y: auto; padding-right: 4px; }
+    .placement-item { display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border-color); animation: slideIn 0.2s ease-out; cursor: pointer; transition: all 0.2s; }
+    .placement-item:hover { border-color: var(--primary-color); background: white; }
+    .placement-item.selected { border-color: var(--primary-color); background: rgba(255, 122, 41, 0.05); box-shadow: 0 4px 12px rgba(255, 122, 41, 0.1); }
+    .placement-item .p-info { flex: 1; display: flex; flex-direction: column; }
+    .placement-item .p-info span { font-size: 12px; font-weight: 600; color: var(--accent-color); }
+    .placement-item .p-info small { font-size: 10px; color: var(--text-muted); font-weight: 700; opacity: 0.8; }
+    
+    .scale-header { display: flex; justify-content: space-between; align-items: center; }
+    .scale-header mat-icon { font-size: 14px; width: 14px; height: 14px; opacity: 0.5; cursor: help; }
+    
+    .empty-placements { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 0; color: var(--text-muted); opacity: 0.6; }
+    .empty-placements mat-icon { font-size: 40px; width: 40px; height: 40px; }
+    .hint { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .printed-warning { margin-top: 24px; padding: 16px; background: #fdf2ff; border: 1px dashed #a21caf; border-radius: 12px; display: flex; align-items: center; gap: 12px; color: #a21caf; }
+    .printed-warning mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .printed-warning p { margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
   `]
 })
 export class DocumentSignComponent implements OnInit {
@@ -301,16 +344,55 @@ export class DocumentSignComponent implements OnInit {
 
   isAdmin = computed(() => this.auth.isAdmin());
 
-  selectedPosition = signal<{ x: number, y: number, page: number } | null>(null);
+  placements = signal<SignaturePlacement[]>([]);
+  selectedPlacementIndex = signal<number | null>(null);
+  lastPos = signal<{ x: number, y: number, page: number } | null>(null);
   signatureScale = signal<number>(1);
+
+  filteredAssignedSigners = computed(() => {
+    const d = this.doc();
+    if (!d) return [];
+    const userId = this.auth.currentUserId();
+    // Exclude current user from established signatures so they only show in preview (editable)
+    return d.assignedSigners.filter((s: any) => s.userId !== userId);
+  });
+
+  previewSignatures = computed(() => {
+    const doc = this.doc();
+    if (!doc) return [];
+    
+    // Existing extra signatures (if any)
+    const existingExtra = doc.extraSignatures || [];
+    
+    // Create a special signer for the current preview
+    const previewSigner: any = {
+      userId: 'PREVIEW',
+      userName: 'Tú',
+      signatureImageId: this.mySignature()?.imageUrl,
+      placements: this.placements(),
+      status: 'SIGNED',
+      selectedIndex: this.selectedPlacementIndex() // Pass selection to PDF viewer
+    };
+
+    return [...existingExtra, previewSigner];
+  });
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
+    const userId = this.auth.currentUserId();
+
     if (id) {
-      this.docService.getDocumentById(id).subscribe(d => this.doc.set(d));
+      this.docService.getDocumentById(id).subscribe(d => {
+        if (!d) return;
+        this.doc.set(d);
+        // Load existing placements for editing if user already signed
+        const mySigner = d.assignedSigners.find((s: any) => s.userId === userId);
+        if (mySigner && mySigner.placements && mySigner.placements.length > 0) {
+          this.placements.set(mySigner.placements);
+        }
+      });
     }
 
-    const userId = this.auth.currentUserId();
     if (userId) {
       this.sigService.getSignaturesByUser(userId).pipe(
         map(sigs => sigs.filter(s => s.isActive))
@@ -328,7 +410,7 @@ export class DocumentSignComponent implements OnInit {
 
   canSign(): boolean {
     const d = this.doc();
-    if (!d) return false;
+    if (!d || d.status === DocumentStatus.PRINTED) return false;
     const userId = this.auth.currentUserId();
     // Allow signing if the user is in the assigned list (even if already signed)
     return d.assignedSigners.some((s: any) => s.userId === userId);
@@ -336,12 +418,57 @@ export class DocumentSignComponent implements OnInit {
 
   onPositionSelected(pos: { x: number, y: number, page: number }) {
     if (!this.canSign()) return;
-    this.selectedPosition.set(pos);
+    this.lastPos.set(pos);
+    const newPlacement = { ...pos, scale: this.signatureScale() };
+    this.placements.update(all => [...all, newPlacement]);
+    // Auto-select the last one placed
+    this.selectedPlacementIndex.set(this.placements().length - 1);
+  }
+
+  onSignatureMoved(event: { index: number, x: number, y: number }) {
+    this.placements.update(all => {
+      const copy = [...all];
+      if (copy[event.index]) {
+        copy[event.index] = { ...copy[event.index], x: event.x, y: event.y };
+      }
+      return copy;
+    });
+    // Select the one being moved
+    this.selectedPlacementIndex.set(event.index);
+    // Update global scale to reflect moved one
+    this.signatureScale.set(this.placements()[event.index].scale);
+  }
+
+  removePlacement(index: number) {
+    this.placements.update(all => all.filter((_, i) => i !== index));
+    if (this.selectedPlacementIndex() === index) {
+      this.selectedPlacementIndex.set(null);
+    } else if (this.selectedPlacementIndex()! > index) {
+      this.selectedPlacementIndex.update(idx => idx! - 1);
+    }
   }
 
   onScaleChange(event: Event) {
     const input = event.target as HTMLInputElement;
-    this.signatureScale.set(parseFloat(input.value));
+    const scale = parseFloat(input.value);
+    this.signatureScale.set(scale);
+    
+    // Update selected placement's scale if any
+    const idx = this.selectedPlacementIndex();
+    if (idx !== null) {
+      this.placements.update(all => {
+        const copy = [...all];
+        if (copy[idx]) {
+          copy[idx] = { ...copy[idx], scale };
+        }
+        return copy;
+      });
+    }
+  }
+
+  selectPlacement(index: number) {
+    this.selectedPlacementIndex.set(index);
+    this.signatureScale.set(this.placements()[index].scale);
   }
 
   onSignatureCreated(blob: Blob) {
@@ -352,20 +479,18 @@ export class DocumentSignComponent implements OnInit {
   }
 
   canConfirm(): boolean {
-    return !!this.mySignature() && !!this.selectedPosition() && this.canSign();
+    return !!this.mySignature() && this.placements().length > 0 && this.canSign();
   }
 
   saveSignature() {
     if (!this.canConfirm()) return;
 
     this.loading.set(true);
-    const pos = this.selectedPosition()!;
-
+    
     this.docService.signDocument(this.doc()!.id, {
-      ...pos,
+      placements: this.placements(),
       signatureImageId: this.mySignature()!.imageUrl,
-      userId: this.auth.currentUserId(),
-      scale: this.signatureScale()
+      userId: this.auth.currentUserId()
     }).subscribe({
       next: (updated) => {
         this.doc.set(updated);

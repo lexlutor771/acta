@@ -45,6 +45,11 @@ import { DocumentStatus, SignerStatus } from '../../../core/models/document.mode
       background: #f0fdf4; color: #16a34a; border-color: #bbf7d0;
     }
     .status-completed::before { background: #16a34a; box-shadow: 0 0 6px rgba(22, 163, 74, 0.4); }
+    
+    .status-printed { 
+      background: #fdf2ff; color: #a21caf; border-color: #f5d0fe;
+    }
+    .status-printed::before { background: #a21caf; }
 
     .status-rejected { 
       background: #fef2f2; color: #dc2626; border-color: #fecaca;
@@ -83,6 +88,9 @@ export class StatusBadgeComponent {
             case DocumentStatus.COMPLETED:
             case SignerStatus.SIGNED:
                 this.badgeClass = 'status-completed';
+                break;
+            case DocumentStatus.PRINTED:
+                this.badgeClass = 'status-printed';
                 break;
             case DocumentStatus.REJECTED:
             case SignerStatus.REJECTED:

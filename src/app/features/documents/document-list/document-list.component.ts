@@ -11,8 +11,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DocumentsState } from '../../../documents.state';
-import { DocumentStatus } from '../../../core/models/document.model';
+import { Document, DocumentStatus } from '../../../core/models/document.model';
 import { AuthService } from '../../../core/auth/auth.service';
+import { DocumentService } from '../../../core/services/document.service';
+import { PdfGeneratorService } from '../../../core/services/pdf-generator.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
 
@@ -120,8 +122,9 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
                 <button mat-icon-button [routerLink]="['/documents', row.id, 'history']" matTooltip="Historial">
                   <mat-icon>history</mat-icon>
                 </button>
-                <button *ngIf="isAdmin()" mat-icon-button (click)="downloadDocument(row)" matTooltip="Descargar PDF" color="accent" [disabled]="row.status === 'PENDING'">
-                  <mat-icon>file_download</mat-icon>
+                <button *ngIf="isAdmin()" mat-icon-button (click)="downloadDocument(row)" matTooltip="Descargar PDF" color="accent" [disabled]="row.status === 'PENDING' || isGeneratingPdf()">
+                  <mat-spinner diameter="20" *ngIf="isGeneratingPdf() && downloadingId() === row.id"></mat-spinner>
+                  <mat-icon *ngIf="!(isGeneratingPdf() && downloadingId() === row.id)">file_download</mat-icon>
                 </button>
               </div>
             </td>
@@ -177,7 +180,10 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
                   <mat-icon>draw</mat-icon> FIRMAR / VER
                 </button>
                 <button mat-icon-button class="btn-icon" [routerLink]="['/documents', row.id, 'history']" matTooltip="Historial"><mat-icon>history</mat-icon></button>
-                <button *ngIf="isAdmin()" mat-icon-button class="btn-icon" (click)="downloadDocument(row)" [disabled]="row.status === 'PENDING'" matTooltip="Descargar"><mat-icon>file_download</mat-icon></button>
+                <button *ngIf="isAdmin()" mat-icon-button class="btn-icon" (click)="downloadDocument(row)" [disabled]="row.status === 'PENDING' || isGeneratingPdf()" matTooltip="Descargar">
+                  <mat-spinner diameter="20" *ngIf="isGeneratingPdf() && downloadingId() === row.id"></mat-spinner>
+                  <mat-icon *ngIf="!(isGeneratingPdf() && downloadingId() === row.id)">file_download</mat-icon>
+                </button>
             </div>
           </div>
           <div *ngIf="dataSource.filteredData.length === 0" class="no-data-mobile">No se encontraron documentos</div>
@@ -304,6 +310,8 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
 export class DocumentListComponent implements OnInit, AfterViewInit {
   private state = inject(DocumentsState);
   private auth = inject(AuthService);
+  private docService = inject(DocumentService);
+  private pdfGenService = inject(PdfGeneratorService);
 
   @ViewChild(MatPaginator) paginator!: MatPaginator;
   @ViewChild(MatSort) sort!: MatSort;
@@ -315,6 +323,9 @@ export class DocumentListComponent implements OnInit, AfterViewInit {
   dataSource = new MatTableDataSource<any>([]);
   isAdmin = this.auth.isAdmin;
   isLoading = computed(() => this.state.loading());
+  
+  isGeneratingPdf = signal(false);
+  downloadingId = signal<string | null>(null);
 
   showColumnFilters = signal(false);
   columnFilters = signal<Record<string, string>>({});
@@ -424,9 +435,37 @@ export class DocumentListComponent implements OnInit, AfterViewInit {
   }
 
   downloadDocument(doc: any) {
-    if (doc.currentPdfUrl) {
-      window.open(doc.currentPdfUrl, '_blank');
-    }
+    if (!doc.currentPdfUrl) return;
+
+    this.isGeneratingPdf.set(true);
+    this.downloadingId.set(doc.id);
+
+    this.pdfGenService.generateSignedPdf(doc).subscribe({
+      next: (blob) => {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `${doc.documentCode || 'Documento'}_Firmado.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+
+        this.isGeneratingPdf.set(false);
+        this.downloadingId.set(null);
+
+        if (doc.status === DocumentStatus.COMPLETED && this.isAdmin()) {
+          this.docService.markAsPrinted(doc.id).subscribe((updated: Document) => {
+            this.state.updateDocumentInList(updated);
+          });
+        }
+      },
+      error: (err) => {
+        console.error('Error generating PDF', err);
+        this.isGeneratingPdf.set(false);
+        this.downloadingId.set(null);
+      }
+    });
   }
 }
 

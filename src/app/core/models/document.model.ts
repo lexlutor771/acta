@@ -3,6 +3,7 @@ export enum DocumentStatus {
     PENDING = 'PENDING',     // Esperando firmas
     IN_PROGRESS = 'IN_PROGRESS', // Al menos 1 firma recibida
     COMPLETED = 'COMPLETED',   // Todas las firmas obtenidas
+    PRINTED = 'PRINTED',       // Documento final descargado/impreso
     REJECTED = 'REJECTED',
     DELETED = 'DELETED'
 }
@@ -22,6 +23,13 @@ export interface DocumentComment {
     createdAt: Date;
 }
 
+export interface SignaturePlacement {
+    x: number;
+    y: number;
+    page: number;
+    scale: number;
+}
+
 export interface DocumentSigner {
     userId: string;
     userName?: string;
@@ -30,10 +38,11 @@ export interface DocumentSigner {
     status: SignerStatus;
     signedAt?: Date;
     signatureImageId?: string;
-    positionX?: number;          // % sobre el PDF (0-100)
+    positionX?: number;          // % sobre el PDF (0-100) - Deprecated, using placements
     positionY?: number;
     pageNumber?: number;
     scale?: number;              // Factor de escala (1 = 100%, 0.5 = 50%, etc)
+    placements?: SignaturePlacement[];
 }
 
 export interface SignatureSlot {

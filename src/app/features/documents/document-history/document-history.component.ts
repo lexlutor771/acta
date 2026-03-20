@@ -9,11 +9,13 @@ import { DocumentService } from '../../../core/services/document.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
+import { PdfGeneratorService } from '../../../core/services/pdf-generator.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-document-history',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatCardModule, MatIconModule, MatButtonModule, MatTableModule, StatusBadgeComponent, DateFormatPipe],
+  imports: [CommonModule, RouterModule, MatCardModule, MatIconModule, MatButtonModule, MatTableModule, StatusBadgeComponent, DateFormatPipe, MatProgressSpinnerModule],
   template: `
     <div class="history-root" *ngIf="doc()">
       <header class="history-header">
@@ -22,8 +24,11 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
           <h1>{{ doc() ? 'Historial: ' + doc()?.title : 'Cargando historial...' }}</h1>
         </div>
         <div class="h-actions">
-          <button mat-raised-button color="primary" *ngIf="doc()?.status === 'COMPLETED' && isAdmin()" (click)="downloadDocument()">
-            <mat-icon>download</mat-icon> DESCARGAR FINAL
+          <button mat-raised-button color="primary" *ngIf="doc()?.status === 'COMPLETED' || doc()?.status === 'PRINTED'" 
+                  (click)="downloadDocument()" [disabled]="isGeneratingPdf()" [class.generating]="isGeneratingPdf()">
+            <mat-spinner diameter="20" *ngIf="isGeneratingPdf()" color="accent"></mat-spinner>
+            <mat-icon *ngIf="!isGeneratingPdf()">download</mat-icon> 
+            {{ isGeneratingPdf() ? 'GENERANDO...' : 'DESCARGAR FINAL' }}
           </button>
         </div>
       </header>
@@ -135,11 +140,13 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
 export class DocumentHistoryComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private docService = inject(DocumentService);
+  private pdfGenService = inject(PdfGeneratorService);
   private auth = inject(AuthService);
 
   doc = signal<any>(null);
   isAdmin = this.auth.isAdmin;
   isLoading = signal(true);
+  isGeneratingPdf = signal(false);
 
   timeline = computed(() => {
     const d = this.doc();
@@ -158,11 +165,13 @@ export class DocumentHistoryComponent implements OnInit {
     // 2. Signature events
     d.assignedSigners.forEach((s: any) => {
       if (s.status === 'SIGNED' && s.signedAt) {
+        const pages = s.placements?.map((p: any) => p.page) || [s.pageNumber];
+        const uniquePages = [...new Set(pages)].sort((a: any, b: any) => a - b);
         events.push({
           userName: s.userName,
           action: 'SIGNED',
           timestamp: s.signedAt,
-          detail: `Posicionó la firma en la página ${s.pageNumber}`
+          detail: `Posicionó ${s.placements?.length || 1} firma(s) en la(s) página(s): ${uniquePages.join(', ')}`
         });
       }
     });
@@ -201,8 +210,34 @@ export class DocumentHistoryComponent implements OnInit {
   }
 
   downloadDocument() {
-    if (this.doc()?.currentPdfUrl) {
-      window.open(this.doc()!.currentPdfUrl, '_blank');
-    }
+    const d = this.doc();
+    if (!d) return;
+
+    this.isGeneratingPdf.set(true);
+
+    this.pdfGenService.generateSignedPdf(this.doc()).subscribe({
+      next: (blob) => {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `${d.documentCode || 'Documento'}_Firmado.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+
+        this.isGeneratingPdf.set(false);
+
+        if (d.status === 'COMPLETED' && this.isAdmin()) {
+          this.docService.markAsPrinted(d.id).subscribe(updated => {
+            this.doc.set(updated);
+          });
+        }
+      },
+      error: (err) => {
+        console.error('Error generating PDF', err);
+        this.isGeneratingPdf.set(false);
+      }
+    });
   }
 }

@@ -54,7 +54,8 @@ export class DocumentService {
             positionX: row.position_x,
             positionY: row.position_y,
             pageNumber: row.page_number,
-            scale: row.scale
+            scale: row.scale,
+            placements: row.placements || []
         };
     }
 
@@ -180,18 +181,20 @@ export class DocumentService {
         );
     }
 
-    signDocument(documentId: string, signData: { x: number, y: number, page: number, signatureImageId: string, userId: string, scale?: number }): Observable<Document> {
+    signDocument(documentId: string, signData: { placements: any[], signatureImageId: string, userId: string }): Observable<Document> {
         // Update the specific signer record
         return from(supabase
             .from('document_signers')
             .update({
                 status: SignerStatus.SIGNED,
                 signed_at: new Date(),
-                position_x: signData.x,
-                position_y: signData.y,
-                page_number: signData.page,
                 signature_image_id: signData.signatureImageId,
-                scale: signData.scale || 1
+                placements: signData.placements,
+                // For backward compatibility with things expecting single coordinates, use first placement
+                position_x: signData.placements[0]?.x,
+                position_y: signData.placements[0]?.y,
+                page_number: signData.placements[0]?.page,
+                scale: signData.placements[0]?.scale || 1
             })
             .eq('document_id', documentId)
             .eq('user_id', signData.userId)
@@ -313,6 +316,24 @@ export class DocumentService {
                 if (error) throw error;
                 // If we want to update signers too, it would be more complex (delete and re-insert or diff)
                 // For now just return the updated doc
+                return this.getDocumentById(id).pipe(
+                    map(d => { if (!d) throw new Error('Documento no encontrado'); return d; })
+                );
+            }),
+            catchError(err => this.handleError(err))
+        );
+    }
+
+    markAsPrinted(id: string): Observable<Document> {
+        return from(supabase
+            .from('documents')
+            .update({ status: DocumentStatus.PRINTED, last_modified_at: new Date() })
+            .eq('id', id)
+            .select()
+            .single()
+        ).pipe(
+            switchMap(({ error }) => {
+                if (error) throw error;
                 return this.getDocumentById(id).pipe(
                     map(d => { if (!d) throw new Error('Documento no encontrado'); return d; })
                 );

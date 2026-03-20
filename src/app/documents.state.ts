@@ -22,7 +22,7 @@ export class DocumentsState {
     );
 
     completedCount = computed(() =>
-        this.list().filter(d => d.status === DocumentStatus.COMPLETED).length
+        this.list().filter(d => d.status === DocumentStatus.COMPLETED || d.status === DocumentStatus.PRINTED).length
     );
 
     pendingForUser = computed(() => {
