@@ -14,6 +14,7 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DocumentsState } from '../../../documents.state';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { DocumentService } from '../../../core/services/document.service';
@@ -41,7 +42,8 @@ import { SignerStatus, DocumentStatus } from '../../../core/models/document.mode
     MatTableModule,
     MatTooltipModule,
     DragDropModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    StatusBadgeComponent
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'es-ES' }
@@ -136,7 +138,7 @@ import { SignerStatus, DocumentStatus } from '../../../core/models/document.mode
                   <div class="signer-name">{{ signer.name }}</div>
                   <div class="signer-role">{{ signer.role }}</div>
                 </div>
-                <button mat-icon-button color="warn" (click)="removeSigner(i)" type="button">
+                <button mat-icon-button color="warn" (click)="removeSigner(i)" type="button" *ngIf="!isPrinted()">
                   <mat-icon>close</mat-icon>
                 </button>
               </div>
@@ -151,7 +153,7 @@ import { SignerStatus, DocumentStatus } from '../../../core/models/document.mode
                 <mat-icon>upload_file</mat-icon>
                 <p>Haz clic o arrastra el PDF aquí</p>
                 <span>Máximo 50MB</span>
-                <input type="file" (change)="onFileSelected($event)" accept="application/pdf">
+                <input type="file" (change)="onFileSelected($event)" accept="application/pdf" *ngIf="!isPrinted()">
               </div>
               <div class="file-info" *ngIf="selectedFile">
                 <mat-icon color="primary">picture_as_pdf</mat-icon>
@@ -159,7 +161,7 @@ import { SignerStatus, DocumentStatus } from '../../../core/models/document.mode
                   <span class="filename">{{ selectedFile.name }}</span>
                   <span class="filesize">{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB</span>
                 </div>
-                <button mat-icon-button (click)="selectedFile = null" type="button"><mat-icon>delete</mat-icon></button>
+                <button mat-icon-button (click)="selectedFile = null" type="button" *ngIf="!isPrinted()"><mat-icon>delete</mat-icon></button>
               </div>
             </div>
           </div>
@@ -167,16 +169,20 @@ import { SignerStatus, DocumentStatus } from '../../../core/models/document.mode
 
         <div class="form-footer">
           <button mat-button type="button" (click)="resetForm()">{{ editingDocId() ? 'CANCELAR EDICIÓN' : 'REINICIAR' }}</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="uploadForm.invalid || assignedSigners.length === 0">
+          <button mat-raised-button color="primary" type="submit" [disabled]="uploadForm.invalid || assignedSigners.length === 0" *ngIf="!isPrinted()">
             {{ editingDocId() ? 'GUARDAR CAMBIOS' : 'PUBLICAR DOCUMENTO' }}
           </button>
+          <div class="printed-badge" *ngIf="isPrinted()">
+            <mat-icon>lock</mat-icon>
+            <span>DOCUMENTO IMPRESO</span>
+          </div>
         </div>
       </form>
 
       <div class="documents-list-section glass-panel">
         <div class="section-title">
           <h3>Documentos Existentes</h3>
-          <mat-icon matTooltip="Listado de todas las actas registradas">list</mat-icon>
+          <mat-icon matTooltip="Listado de todas las actas registradas">info</mat-icon>
         </div>
 
         <table mat-table [dataSource]="documents()">
@@ -188,6 +194,13 @@ import { SignerStatus, DocumentStatus } from '../../../core/models/document.mode
           <ng-container matColumnDef="title">
             <th mat-header-cell *matHeaderCellDef> Título </th>
             <td mat-cell *matCellDef="let doc"> {{doc.title}} </td>
+          </ng-container>
+          
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef> Estado </th>
+            <td mat-cell *matCellDef="let doc">
+              <app-status-badge [status]="doc.status"></app-status-badge>
+            </td>
           </ng-container>
 
           <ng-container matColumnDef="actions">
@@ -204,8 +217,8 @@ import { SignerStatus, DocumentStatus } from '../../../core/models/document.mode
             </td>
           </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="['code', 'title', 'actions']"></tr>
-          <tr mat-row *matRowDef="let row; columns: ['code', 'title', 'actions'];"></tr>
+          <tr mat-header-row *matHeaderRowDef="['code', 'title', 'status', 'actions']"></tr>
+          <tr mat-row *matRowDef="let row; columns: ['code', 'title', 'status', 'actions'];"></tr>
         </table>
       </div>
     </div>
@@ -300,6 +313,18 @@ import { SignerStatus, DocumentStatus } from '../../../core/models/document.mode
       .form-footer button { width: 100%; }
       .documents-list-section { padding: 20px; overflow-x: auto; }
     }
+    .printed-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 32px;
+      height: 56px;
+      background: #f1f5f9;
+      color: #64748b;
+      border-radius: 16px;
+      font-weight: 800;
+      border: 1px solid #e2e8f0;
+    }
   `]
 })
 export class DocumentUploadComponent {
@@ -330,6 +355,8 @@ export class DocumentUploadComponent {
   documents = this.state.list;
   editingDocId = signal<string | null>(null);
 
+  isPrinted = signal(false);
+
   ngOnInit() {
     this.state.loadDocuments();
     this.userService.getUsers().subscribe(users => {
@@ -338,6 +365,7 @@ export class DocumentUploadComponent {
   }
 
   addSigner(event: any) {
+    if (this.isPrinted()) return;
     const user = event.option.value;
     if (!this.assignedSigners.find(u => u.id === user.id)) {
       this.assignedSigners.push(user);
@@ -346,10 +374,12 @@ export class DocumentUploadComponent {
   }
 
   removeSigner(index: number) {
+    if (this.isPrinted()) return;
     this.assignedSigners.splice(index, 1);
   }
 
   onDropSigner(event: CdkDragDrop<string[]>) {
+    if (this.isPrinted()) return;
     moveItemInArray(this.assignedSigners, event.previousIndex, event.currentIndex);
   }
 
@@ -362,6 +392,15 @@ export class DocumentUploadComponent {
 
   editDocument(doc: any) {
     this.editingDocId.set(doc.id);
+    const isPrinted = doc.status === 'PRINTED';
+    this.isPrinted.set(isPrinted);
+
+    if (isPrinted) {
+      this.uploadForm.disable();
+    } else {
+      this.uploadForm.enable();
+    }
+
     this.uploadForm.patchValue({
       title: doc.title,
       documentCode: doc.documentCode,
@@ -406,6 +445,8 @@ export class DocumentUploadComponent {
 
   resetForm() {
     this.editingDocId.set(null);
+    this.isPrinted.set(false);
+    this.uploadForm.enable();
     this.uploadForm.reset({
       documentCode: '001.P.SGI.06.F.05',
       location: 'FABRICA DE CEMENTOS MONCADA',
