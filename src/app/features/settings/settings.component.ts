@@ -11,6 +11,8 @@ import { MatNativeDateModule, MAT_DATE_LOCALE } from '@angular/material/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SettingsService } from '../../core/services/settings.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { DialogService } from '../../core/services/dialog.service';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-settings',
@@ -25,7 +27,8 @@ import { AuthService } from '../../core/auth/auth.service';
     MatIconModule,
     MatDatepickerModule,
     MatNativeDateModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatSnackBarModule
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'es-ES' }
@@ -33,8 +36,13 @@ import { AuthService } from '../../core/auth/auth.service';
   template: `
     <div class="settings-root">
       <header class="settings-header">
-        <h1>Configuración del Sistema</h1>
-        <p>Administre los datos de la empresa y configuración de correos electrónicos.</p>
+        <div class="header-titles">
+          <h1>Configuración del Sistema</h1>
+          <p>Administre los datos de la empresa y configuración de correos electrónicos.</p>
+        </div>
+        <button mat-stroked-button color="primary" (click)="unlockEditing()" *ngIf="!isEditMode()">
+          <mat-icon>edit</mat-icon> MODIFICAR
+        </button>
       </header>
 
       <div class="glass-panel main-content" *ngIf="!isLoading()">
@@ -94,7 +102,7 @@ import { AuthService } from '../../core/auth/auth.service';
           </div>
 
           <div class="form-actions">
-            <button mat-raised-button color="primary" type="submit" [disabled]="settingsForm.invalid || isSaving()">
+            <button mat-raised-button color="primary" type="submit" [disabled]="settingsForm.invalid || isSaving()" *ngIf="isEditMode()">
               <mat-spinner diameter="20" *ngIf="isSaving()"></mat-spinner>
               <mat-icon *ngIf="!isSaving()">save</mat-icon> GUARDAR CONFIGURACIÓN
             </button>
@@ -109,8 +117,9 @@ import { AuthService } from '../../core/auth/auth.service';
   `,
   styles: [`
     .settings-root { display: flex; flex-direction: column; gap: 32px; max-width: 900px; margin: 0 auto; }
-    .settings-header h1 { font-size: 36px; font-weight: 900; margin-bottom: 4px; color: var(--accent-color); }
-    .settings-header p { color: var(--text-muted); font-size: 15px; font-weight: 500; }
+    .settings-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .header-titles h1 { font-size: 36px; font-weight: 900; margin-bottom: 4px; color: var(--accent-color); }
+    .header-titles p { color: var(--text-muted); font-size: 15px; font-weight: 500; }
     
     .glass-panel { padding: 40px; }
     
@@ -137,9 +146,12 @@ export class SettingsComponent implements OnInit {
   private settingsService = inject(SettingsService);
   private auth = inject(AuthService);
   private fb = inject(FormBuilder);
+  private snackBar = inject(MatSnackBar);
+  private dialogService = inject(DialogService);
 
   isLoading = signal(true);
   isSaving = signal(false);
+  isEditMode = signal(false);
   hidePassword = true;
 
   settingsForm: FormGroup = this.fb.group({
@@ -152,6 +164,7 @@ export class SettingsComponent implements OnInit {
   });
 
   ngOnInit() {
+    this.settingsForm.disable();
     this.settingsService.getSettings().subscribe({
       next: (settings) => {
         this.settingsForm.patchValue(settings);
@@ -161,12 +174,36 @@ export class SettingsComponent implements OnInit {
     });
   }
 
+  unlockEditing() {
+    this.dialogService.prompt(
+      'Autorización Requerida',
+      'Ingrese la contraseña para modificar la configuración:',
+      'Contraseña'
+    ).subscribe(pwd => {
+      if (pwd === 'luthor00$$') {
+        this.isEditMode.set(true);
+        this.settingsForm.enable();
+        this.snackBar.open('Modo de edición habilitado', 'Cerrar', { duration: 3000 });
+      } else if (pwd !== null) {
+        this.snackBar.open('Contraseña incorrecta', 'Cerrar', { duration: 3000 });
+      }
+    });
+  }
+
   saveSettings() {
-    if (this.settingsForm.invalid) return;
+    if (this.settingsForm.invalid || !this.isEditMode()) return;
     this.isSaving.set(true);
     this.settingsService.updateSettings(this.settingsForm.value).subscribe({
-      next: () => this.isSaving.set(false),
-      error: () => this.isSaving.set(false)
+      next: () => {
+        this.isSaving.set(false);
+        this.isEditMode.set(false);
+        this.settingsForm.disable();
+        this.snackBar.open('Configuración actualizada y bloqueada', 'Cerrar', { duration: 3000 });
+      },
+      error: () => {
+        this.isSaving.set(false);
+        this.snackBar.open('Error al guardar la configuración', 'Cerrar', { duration: 3000 });
+      }
     });
   }
 }

@@ -43,10 +43,21 @@ export class DialogService {
       type: 'confirm',
       confirmText: confirmText || 'Eliminar',
       cancelText: cancelText || 'Cancelar'
-    });
+    }) as Observable<boolean>;
   }
 
-  private openDialog(data: DialogData): Observable<boolean> {
+  prompt(title: string, message: string, inputPlaceholder?: string, confirmText?: string, cancelText?: string): Observable<string | null> {
+    return this.openDialog({
+      title,
+      message,
+      type: 'prompt',
+      inputPlaceholder: inputPlaceholder || 'Escriba aquí...',
+      confirmText: confirmText || 'Confirmar',
+      cancelText: cancelText || 'Cancelar'
+    }) as Observable<string | null>;
+  }
+
+  private openDialog(data: DialogData): Observable<any> {
     const dialogRef = this.dialog.open(SharedDialogComponent, {
       data,
       width: '400px',

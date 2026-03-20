@@ -23,6 +23,7 @@ import { DialogService } from '../../../core/services/dialog.service';
 import { User } from '../../../core/models/user.model';
 import { SignerStatus, DocumentStatus } from '../../../core/models/document.model';
 import { map } from 'rxjs/operators';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-document-upload',
@@ -44,7 +45,8 @@ import { map } from 'rxjs/operators';
     MatTooltipModule,
     DragDropModule,
     MatSnackBarModule,
-    StatusBadgeComponent
+    StatusBadgeComponent,
+    MatProgressSpinnerModule
   ],
   providers: [
     { provide: MAT_DATE_LOCALE, useValue: 'es-ES' }
@@ -170,8 +172,9 @@ import { map } from 'rxjs/operators';
 
         <div class="form-footer">
           <button mat-button type="button" (click)="resetForm()">{{ editingDocId() ? 'CANCELAR EDICIÓN' : 'REINICIAR' }}</button>
-          <button mat-raised-button color="primary" type="submit" [disabled]="uploadForm.invalid || assignedSigners.length === 0" *ngIf="!isPrinted()">
-            {{ editingDocId() ? 'GUARDAR CAMBIOS' : 'PUBLICAR DOCUMENTO' }}
+          <button mat-raised-button color="primary" type="submit" [disabled]="uploadForm.invalid || assignedSigners.length === 0 || isSaving()" *ngIf="!isPrinted()">
+            <ng-container *ngIf="!isSaving()">{{ editingDocId() ? 'GUARDAR CAMBIOS' : 'PUBLICAR DOCUMENTO' }}</ng-container>
+            <ng-container *ngIf="isSaving()"><mat-spinner diameter="20" style="display:inline-block; margin-right:8px; vertical-align: middle; stroke: white;"></mat-spinner><span style="vertical-align: middle;">GUARDANDO...</span></ng-container>
           </button>
           <div class="printed-badge" *ngIf="isPrinted()">
             <mat-icon>lock</mat-icon>
@@ -211,7 +214,7 @@ import { map } from 'rxjs/operators';
                 <button mat-icon-button color="primary" matTooltip="Editar" (click)="editDocument(doc)">
                   <mat-icon>edit</mat-icon>
                 </button>
-                <button mat-icon-button color="warn" matTooltip="Eliminar" (click)="deleteDocument(doc.id)">
+                <button *ngIf="doc.status === 'DRAFT'" mat-icon-button color="warn" matTooltip="Eliminar" (click)="deleteDocument(doc.id)">
                   <mat-icon>delete</mat-icon>
                 </button>
               </div>
@@ -357,6 +360,7 @@ export class DocumentUploadComponent {
   editingDocId = signal<string | null>(null);
 
   isPrinted = signal(false);
+  isSaving = signal(false);
 
   ngOnInit() {
     this.state.loadDocuments();
@@ -429,6 +433,12 @@ export class DocumentUploadComponent {
   }
 
   deleteDocument(id: string) {
+    const doc = this.documents().find(d => d.id === id);
+    if (doc?.status !== 'DRAFT') {
+      this.snackBar.open('Solo los documentos en estado BORRADOR pueden ser eliminados.', 'Cerrar', { duration: 3000 });
+      return;
+    }
+
     this.dialogService.confirm(
       '¿Eliminar Documento?',
       '¿Está seguro de eliminar este documento permanentemente?',
@@ -467,6 +477,8 @@ export class DocumentUploadComponent {
       return;
     }
 
+    this.isSaving.set(true);
+
     const signers = this.assignedSigners.map((u, i) => ({
       userId: u.id,
       userName: u.name,
@@ -484,8 +496,6 @@ export class DocumentUploadComponent {
 
     const action = this.editingDocId()
       ? this.docService.updateDocument(this.editingDocId()!, docData).pipe(
-          // For simplicity, updateDocument doesn't currently return the ID cleanly unless modified, 
-          // but we know the editingDocId.
           map(() => this.editingDocId()!)
         )
       : this.docService.uploadDocument(docData, this.selectedFile!).pipe(
@@ -497,18 +507,30 @@ export class DocumentUploadComponent {
         // If status is PENDING, trigger the email
         if (this.uploadForm.get('status')?.value === 'PENDING') {
           this.docService.sendNotificationEmail(docId).subscribe({
-            next: () => this.snackBar.open('Documento subido y notificaciones enviadas', 'Cerrar', { duration: 4000 }),
-            error: () => this.snackBar.open('Documento subido, pero hubo un error enviando notificaciones', 'Cerrar', { duration: 4000 })
+            next: () => {
+              this.snackBar.open('Documento subido y notificaciones enviadas', 'Cerrar', { duration: 4000 });
+              this.isSaving.set(false);
+            },
+            error: () => {
+              this.snackBar.open('Documento subido, pero hubo un error enviando notificaciones', 'Cerrar', { duration: 4000 });
+              this.isSaving.set(false);
+            }
           });
         } else {
           const msg = this.editingDocId() ? 'Documento actualizado' : 'Documento subido correctamente';
           this.snackBar.open(msg, 'Cerrar', { duration: 3000 });
+          this.isSaving.set(false);
         }
 
         this.state.loadDocuments();
         this.resetForm();
         if (!this.editingDocId()) this.router.navigate(['/documents']);
+      },
+      error: () => {
+        this.snackBar.open('Error al guardar el documento', 'Cerrar', { duration: 3000 });
+        this.isSaving.set(false);
       }
     });
   }
+
 }

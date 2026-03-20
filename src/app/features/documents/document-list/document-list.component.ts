@@ -333,8 +333,16 @@ export class DocumentListComponent implements OnInit, AfterViewInit {
   constructor() {
     effect(() => {
       const allDocs = this.state.list();
+      const currentUserId = this.auth.currentUserId();
+      const isAdmin = this.auth.isAdmin();
+
       // En la lista principal solo mostramos documentos que ya NO son borradores
-      this.dataSource.data = allDocs.filter(d => d.status !== DocumentStatus.DRAFT);
+      // Y si no es admin, filtramos a los asignados
+      this.dataSource.data = allDocs.filter(d => {
+        if (d.status === DocumentStatus.DRAFT) return false;
+        if (isAdmin) return true;
+        return d.assignedSigners?.some((s: any) => s.userId === currentUserId);
+      });
     });
 
     // Custom filtering logic

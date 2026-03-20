@@ -11,6 +11,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatChipsModule } from '@angular/material/chips';
 import { AuthService } from '../../core/auth/auth.service';
 import { NotificationService } from '../../core/services/notification.service';
+import { SettingsService } from '../../core/services/settings.service';
 import { UserRole } from '../../core/models/user.model';
 
 @Component({
@@ -32,7 +33,7 @@ import { UserRole } from '../../core/models/user.model';
     <mat-sidenav-container class="layout-container">
       <mat-sidenav #sidenav [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="app-sidebar" [fixedInViewport]="true">
         <div class="sidebar-header">
-          <img src="/assets/logo-afi.png" alt="AFI Logo" class="logo-img">
+          <img [src]="companyLogoUrl()" alt="AFI Logo" class="logo-img" (error)="companyLogoUrl.set('/assets/logo-afi.png')">
           <div class="sub-text">Control Documentario</div>
           <div class="sub-text">Actas</div>
           <div class="sub-text" style="color: #cfd3d7ff ;">Demo Version</div>
@@ -286,16 +287,23 @@ import { UserRole } from '../../core/models/user.model';
 export class MainLayoutComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private notificationService = inject(NotificationService);
+  private settingsService = inject(SettingsService);
   private router = inject(Router);
 
   isMobile = signal(false);
   private resizeObserver: any;
+  companyLogoUrl = signal<string>('/assets/logo-afi.png');
 
   ngOnInit() {
     this.checkScreenSize();
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', () => this.checkScreenSize());
     }
+    this.settingsService.getSettings().subscribe(s => {
+      if (s?.companyLogoUrl) {
+        this.companyLogoUrl.set(s.companyLogoUrl);
+      }
+    });
   }
 
   ngOnDestroy() {

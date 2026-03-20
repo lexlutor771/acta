@@ -6,6 +6,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../../core/auth/auth.service';
+import { SettingsService } from '../../../core/services/settings.service';
+import { DialogService } from '../../../core/services/dialog.service';
 
 @Component({
   selector: 'app-login',
@@ -15,7 +17,7 @@ import { AuthService } from '../../../core/auth/auth.service';
     <div class="login-page">
       <div class="glass-panel login-card">
         <div class="login-header">
-          <img src="/assets/logo-afi.png" alt="AFI Logo" class="logo-img">
+          <img [src]="companyLogoUrl()" alt="Logo Empresa" class="logo-img" (error)="companyLogoUrl.set('/assets/logo-afi.png')">
           <h1>Bienvenido</h1>
           <p>Ingrese su código PIN para continuar</p>
         </div>
@@ -181,10 +183,21 @@ export class LoginComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private settingsService = inject(SettingsService);
+  private dialogService = inject(DialogService);
 
   pinDigits: string[] = ['', '', '', '', '', ''];
   loading = signal(false);
   error = signal<string | null>(null);
+  companyLogoUrl = signal<string>('/assets/logo-afi.png');
+
+  constructor() {
+    this.settingsService.getSettings().subscribe(s => {
+      if (s?.companyLogoUrl) {
+        this.companyLogoUrl.set(s.companyLogoUrl);
+      }
+    });
+  }
 
   isPinComplete(): boolean {
     return this.pinDigits.every(d => d.length === 1);
@@ -236,14 +249,51 @@ export class LoginComponent {
 
     this.authService.loginWithPin(pin).subscribe({
       next: (user) => {
-        const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
-        this.router.navigate([returnUrl]);
+        this.settingsService.getSettings().subscribe({
+          next: (settings) => {
+            if (settings?.licenseEndDate) {
+              const expireDate = new Date(settings.licenseEndDate);
+              const now = new Date();
+              expireDate.setHours(23, 59, 59, 999);
+
+              if (now > expireDate) {
+                this.authService.logout();
+                this.dialogService.error('Licencia Expirada', 'El período de licencia de este sistema ha finalizado. Por favor, contacte con el administrador.');
+                this.loading.set(false);
+                this.pinDigits = ['', '', '', '', '', ''];
+                setTimeout(() => this.pinInputs?.toArray()[0]?.nativeElement.focus(), 0);
+                return;
+              }
+
+              const timeDiff = expireDate.getTime() - now.getTime();
+              const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+              if (daysLeft > 0 && daysLeft <= 5) {
+                this.dialogService.warning(
+                  'Licencia por expirar',
+                  `La licencia de uso del sistema caducará en ${daysLeft - 1} día(s). Por favor, contacte a soporte para la renovación.`
+                ).subscribe(() => {
+                  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+                  this.router.navigate([returnUrl]);
+                });
+                return;
+              }
+            }
+            const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+            this.router.navigate([returnUrl]);
+          },
+          error: (err) => {
+            // Si hay error leyendo configuración, permitimos ingreso por precaución
+            const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+            this.router.navigate([returnUrl]);
+          }
+        });
       },
       error: (err) => {
         this.error.set('PIN incorrecto. Intente de nuevo.');
         this.loading.set(false);
         this.pinDigits = ['', '', '', '', '', ''];
-        setTimeout(() => this.pinInputs.toArray()[0].nativeElement.focus(), 0);
+        setTimeout(() => this.pinInputs?.toArray()[0]?.nativeElement.focus(), 0);
       }
     });
   }

@@ -19,6 +19,7 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
 import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
 import { SignatureImage } from '../../../core/models/signature.model';
 import { DocumentStatus, SignaturePlacement } from '../../../core/models/document.model';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-document-sign',
@@ -35,7 +36,8 @@ import { DocumentStatus, SignaturePlacement } from '../../../core/models/documen
     PdfViewerComponent,
     SignaturePadComponent,
     StatusBadgeComponent,
-    DateFormatPipe
+    DateFormatPipe,
+    MatProgressSpinnerModule
   ],
   template: `
     <div class="sign-root">
@@ -56,7 +58,8 @@ import { DocumentStatus, SignaturePlacement } from '../../../core/models/documen
         <div class="header-actions" *ngIf="doc()">
           <app-status-badge [status]="doc()!.status"></app-status-badge>
           <button mat-raised-button color="accent" (click)="saveSignature()" [disabled]="!canConfirm() || loading()">
-            {{ loading() ? 'GUARDANDO...' : 'CONFIRMAR FIRMA' }}
+            <ng-container *ngIf="!loading()">CONFIRMAR FIRMA</ng-container>
+            <ng-container *ngIf="loading()"><mat-spinner diameter="20" style="display:inline-block; margin-right:8px; vertical-align: middle; stroke: white;"></mat-spinner><span style="vertical-align: middle;">GUARDANDO...</span></ng-container>
           </button>
         </div>
       </header>

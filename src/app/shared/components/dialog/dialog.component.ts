@@ -7,9 +7,10 @@ import { MatIconModule } from '@angular/material/icon';
 export interface DialogData {
   title: string;
   message: string;
-  type: 'success' | 'error' | 'warning' | 'confirm';
+  type: 'success' | 'error' | 'warning' | 'confirm' | 'prompt';
   confirmText?: string;
   cancelText?: string;
+  inputPlaceholder?: string;
 }
 
 @Component({
@@ -27,11 +28,15 @@ export interface DialogData {
       <h2 class="dialog-title">{{ data.title }}</h2>
       <p class="dialog-message">{{ data.message }}</p>
       
+      <div class="prompt-section" *ngIf="data.type === 'prompt'">
+        <input type="password" class="prompt-input" [placeholder]="data.inputPlaceholder || ''" (input)="promptValue = $any($event.target).value" (keyup.enter)="onConfirm()">
+      </div>
+
       <div class="dialog-actions">
         <button mat-flat-button class="action-button confirm" (click)="onConfirm()">
           {{ data.confirmText || 'Continuar' }}
         </button>
-        <button *ngIf="data.type === 'confirm'" mat-stroked-button class="action-button cancel" (click)="onCancel()">
+        <button *ngIf="data.type === 'confirm' || data.type === 'prompt'" mat-stroked-button class="action-button cancel" (click)="onCancel()">
           {{ data.cancelText || 'Cancelar' }}
         </button>
       </div>
@@ -74,8 +79,12 @@ export interface DialogData {
     .error .confirm { background: #f54343; color: white; }
 
     /* Warning/Confirm Theme */
-    .warning .icon-wrapper, .confirm .icon-wrapper { background: #fffbeb; color: #f59e0b; }
-    .warning .confirm, .confirm .confirm { background: #f59e0b; color: white; }
+    .warning .icon-wrapper, .confirm .icon-wrapper, .prompt .icon-wrapper { background: #fffbeb; color: #f59e0b; }
+    .warning .confirm, .confirm .confirm, .prompt .confirm { background: #f59e0b; color: white; }
+
+    .prompt-section { width: 100%; display: flex; justify-content: center; }
+    .prompt-input { width: 100%; height: 48px; border-radius: 12px; border: 2px solid #e2e8f0; padding: 0 16px; font-size: 16px; margin-bottom: 24px; box-sizing: border-box; text-align: center; }
+    .prompt-input:focus { outline: none; border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1); }
 
     .dialog-title {
       font-size: 24px;
@@ -121,16 +130,26 @@ export interface DialogData {
   `]
 })
 export class SharedDialogComponent {
+  promptValue = '';
+
   constructor(
     public dialogRef: MatDialogRef<SharedDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: DialogData
   ) {}
 
   onConfirm(): void {
-    this.dialogRef.close(true);
+    if (this.data.type === 'prompt') {
+      this.dialogRef.close(this.promptValue);
+    } else {
+      this.dialogRef.close(true);
+    }
   }
 
   onCancel(): void {
-    this.dialogRef.close(false);
+    if (this.data.type === 'prompt') {
+      this.dialogRef.close(null);
+    } else {
+      this.dialogRef.close(false);
+    }
   }
 }
