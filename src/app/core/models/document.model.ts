@@ -3,7 +3,8 @@ export enum DocumentStatus {
     PENDING = 'PENDING',     // Esperando firmas
     IN_PROGRESS = 'IN_PROGRESS', // Al menos 1 firma recibida
     COMPLETED = 'COMPLETED',   // Todas las firmas obtenidas
-    REJECTED = 'REJECTED'
+    REJECTED = 'REJECTED',
+    DELETED = 'DELETED'
 }
 
 export enum SignerStatus {
@@ -59,6 +60,7 @@ export interface Document {
     status: DocumentStatus;
     assignedSigners: DocumentSigner[];
     createdBy: string;           // userId
+    createdByName?: string;      // User name resolved from ID
     createdAt: Date;
     lastReadAt?: Date;
     lastModifiedAt?: Date;

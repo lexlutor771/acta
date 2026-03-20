@@ -51,10 +51,12 @@ import { DocumentStatus, SignerStatus } from '../../../core/models/document.mode
     }
     .status-rejected::before { background: #dc2626; }
 
-    .status-draft { 
-      background: #f9fafb; color: #4b5563; border-color: #e5e7eb;
-    }
     .status-draft::before { background: #4b5563; }
+
+    .status-deleted { 
+      background: #f1f5f9; color: #475569; border-color: #cbd5e1;
+    }
+    .status-deleted::before { background: #475569; }
   `]
 })
 export class StatusBadgeComponent {
@@ -85,6 +87,10 @@ export class StatusBadgeComponent {
             case DocumentStatus.REJECTED:
             case SignerStatus.REJECTED:
                 this.badgeClass = 'status-rejected';
+                break;
+            case 'DELETED':
+            case 'deleted':
+                this.badgeClass = 'status-deleted';
                 break;
             case DocumentStatus.DRAFT:
                 this.badgeClass = 'status-draft';

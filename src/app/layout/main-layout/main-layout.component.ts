@@ -269,8 +269,11 @@ import { UserRole } from '../../core/models/user.model';
       .app-sidebar { width: 280px; }
       .mobile-only { display: block !important; }
       .user-info { display: none; }
-      .page-container { padding: 16px; }
-      .app-toolbar { padding: 0 8px; }
+      .page-container { padding: 12px; }
+      .app-toolbar { padding: 0 8px; height: 56px; }
+      .sidebar-header { padding: 24px 16px; }
+      .nav-list a { margin: 2px 8px; }
+      .logo-img { height: 32px; }
     }
     .mobile-only { display: none; }
   `]

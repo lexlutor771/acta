@@ -29,11 +29,58 @@ export class DocumentsState {
         const userId = this.authService.currentUserId();
         if (!userId) return [];
         return this.list().filter(d =>
+            d.status !== DocumentStatus.DRAFT &&
             d.assignedSigners.some(s => s.userId === userId && s.status === 'PENDING')
         );
     });
 
     pendingCount = computed(() => this.pendingForUser().length);
+    
+    recentActivity = computed(() => {
+        const events: any[] = [];
+        this.list().forEach(d => {
+            // 1. Creation
+            events.push({
+                userName: d.createdByName || 'Sistema',
+                action: 'CREATED',
+                timestamp: d.createdAt,
+                detail: `Creó el acta ${d.documentCode}`,
+                documentId: d.id,
+                title: d.title
+            });
+
+            // 2. Signatures
+            d.assignedSigners.forEach((s: any) => {
+                if (s.status === 'SIGNED' && s.signedAt) {
+                    events.push({
+                        userName: s.userName,
+                        action: 'SIGNED',
+                        timestamp: s.signedAt,
+                        detail: `Firmó el acta ${d.documentCode}`,
+                        documentId: d.id,
+                        title: d.title
+                    });
+                }
+            });
+
+            // 3. Comments
+            d.comments.forEach((c: any) => {
+                events.push({
+                    userName: c.userName,
+                    action: 'COMMENTED',
+                    timestamp: c.createdAt,
+                    detail: `Comentó en ${d.documentCode}`,
+                    documentId: d.id,
+                    title: d.title
+                });
+            });
+        });
+
+        // Sort by timestamp descending and take top 10
+        return events
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+            .slice(0, 10);
+    });
 
     // Actions
     async loadDocuments() {

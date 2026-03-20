@@ -1,7 +1,7 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { map } from 'rxjs/operators';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -30,17 +30,18 @@ import { SignatureImage } from '../../../core/models/signature.model';
     MatDividerModule,
     MatFormFieldModule,
     MatInputModule,
+    RouterModule,
     PdfViewerComponent,
     SignaturePadComponent,
     StatusBadgeComponent,
     DateFormatPipe
   ],
   template: `
-    <div class="sign-root" *ngIf="doc()">
+    <div class="sign-root">
       <header class="sign-header">
         <div class="header-main">
           <button mat-icon-button routerLink="/documents"><mat-icon>arrow_back</mat-icon></button>
-          <div class="header-titles">
+          <div class="header-titles" *ngIf="doc()">
             <h1>{{ doc()?.title }}</h1>
             <div class="meta">
               <code class="code">{{ doc()?.documentCode }}</code>
@@ -51,7 +52,7 @@ import { SignatureImage } from '../../../core/models/signature.model';
             </div>
           </div>
         </div>
-        <div class="header-actions">
+        <div class="header-actions" *ngIf="doc()">
           <app-status-badge [status]="doc()!.status"></app-status-badge>
           <button mat-raised-button color="accent" (click)="saveSignature()" [disabled]="!canConfirm() || loading()">
             {{ loading() ? 'GUARDANDO...' : 'CONFIRMAR FIRMA' }}
@@ -59,7 +60,7 @@ import { SignatureImage } from '../../../core/models/signature.model';
         </div>
       </header>
 
-      <div class="sign-layout">
+      <div class="sign-layout" *ngIf="doc()">
         <div class="pdf-panel">
           <app-pdf-viewer 
             [src]="doc()!.currentPdfUrl" 
@@ -126,7 +127,7 @@ import { SignatureImage } from '../../../core/models/signature.model';
 
                     <div class="scale-control" *ngIf="selectedPosition()">
                       <label>Tamaño de firma: {{ (signatureScale() * 100) | number:'1.0-0' }}%</label>
-                      <input type="range" class="scale-slider" min="0.5" max="2" step="0.1" [value]="signatureScale()" (input)="onScaleChange($event)">
+                      <input type="range" class="scale-slider" min="0.3" max="2" step="0.1" [value]="signatureScale()" (input)="onScaleChange($event)">
                     </div>
                   </div>
                 </div>

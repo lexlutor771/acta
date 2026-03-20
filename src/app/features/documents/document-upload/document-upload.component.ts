@@ -8,18 +8,19 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
+import { MatNativeDateModule, MAT_DATE_LOCALE } from '@angular/material/core';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DocumentsState } from '../../../documents.state';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
 import { DocumentService } from '../../../core/services/document.service';
 import { UserService } from '../../../core/services/user.service';
 import { DialogService } from '../../../core/services/dialog.service';
 import { User } from '../../../core/models/user.model';
-import { SignerStatus } from '../../../core/models/document.model';
+import { SignerStatus, DocumentStatus } from '../../../core/models/document.model';
 
 @Component({
   selector: 'app-document-upload',
@@ -39,7 +40,11 @@ import { SignerStatus } from '../../../core/models/document.model';
     MatAutocompleteModule,
     MatTableModule,
     MatTooltipModule,
-    DragDropModule
+    DragDropModule,
+    MatSnackBarModule
+  ],
+  providers: [
+    { provide: MAT_DATE_LOCALE, useValue: 'es-ES' }
   ],
   template: `
     <div class="upload-root">
@@ -89,6 +94,15 @@ import { SignerStatus } from '../../../core/models/document.model';
                   {{ type }}
                 </mat-option>
               </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Estado Inicial</mat-label>
+              <mat-select formControlName="status">
+                <mat-option [value]="'DRAFT'">Borrador (No inicia flujo de firmas)</mat-option>
+                <mat-option [value]="'PENDING'">Pendiente (Inicia flujo de firmas)</mat-option>
+              </mat-select>
+              <mat-hint>Si es Borrador, el documento no será visible para los firmantes.</mat-hint>
             </mat-form-field>
 
             <mat-form-field appearance="outline">
@@ -295,6 +309,7 @@ export class DocumentUploadComponent {
   private state = inject(DocumentsState);
   private router = inject(Router);
   private dialogService = inject(DialogService);
+  private snackBar = inject(MatSnackBar);
 
   uploadForm = this.fb.group({
     title: ['', Validators.required],
@@ -303,6 +318,7 @@ export class DocumentUploadComponent {
     meetingType: ['', Validators.required],
     location: ['FABRICA DE CEMENTOS MONCADA', Validators.required],
     meetingDate: [new Date(), Validators.required],
+    status: ['PENDING', Validators.required],
     description: ['']
   });
 
@@ -353,6 +369,7 @@ export class DocumentUploadComponent {
       meetingType: doc.meetingType,
       location: doc.location,
       meetingDate: new Date(doc.meetingDate),
+      status: doc.status || 'PENDING',
       description: doc.description || ''
     });
 
@@ -392,7 +409,8 @@ export class DocumentUploadComponent {
     this.uploadForm.reset({
       documentCode: '001.P.SGI.06.F.05',
       location: 'FABRICA DE CEMENTOS MONCADA',
-      meetingDate: new Date()
+      meetingDate: new Date(),
+      status: 'PENDING'
     });
     this.assignedSigners = [];
     this.selectedFile = null;
@@ -401,9 +419,16 @@ export class DocumentUploadComponent {
   onSubmit() {
     if (this.uploadForm.invalid || this.assignedSigners.length === 0) return;
 
+    // For new uploads, a file is required
+    if (!this.editingDocId() && !this.selectedFile) {
+      this.snackBar.open('Por favor, seleccione un archivo PDF.', 'Cerrar', { duration: 3000 });
+      return;
+    }
+
     const signers = this.assignedSigners.map((u, i) => ({
       userId: u.id,
       userName: u.name,
+      empresa: '', // User model doesn't have empresa yet
       order: i + 1,
       status: SignerStatus.PENDING
     }));
@@ -417,12 +442,16 @@ export class DocumentUploadComponent {
 
     const action = this.editingDocId()
       ? this.docService.updateDocument(this.editingDocId()!, docData)
-      : this.docService.uploadDocument(docData);
+      : this.docService.uploadDocument(docData, this.selectedFile!);
 
-    action.subscribe(() => {
-      this.state.loadDocuments();
-      this.resetForm();
-      if (!this.editingDocId()) this.router.navigate(['/documents']);
+    action.subscribe({
+      next: () => {
+        this.state.loadDocuments();
+        const msg = this.editingDocId() ? 'Documento actualizado' : 'Documento subido correctamente';
+        this.snackBar.open(msg, 'Cerrar', { duration: 3000 });
+        this.resetForm();
+        if (!this.editingDocId()) this.router.navigate(['/documents']);
+      }
     });
   }
 }

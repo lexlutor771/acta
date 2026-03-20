@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -19,7 +19,7 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
       <header class="history-header">
         <div class="h-main">
           <button mat-icon-button routerLink="/documents"><mat-icon>arrow_back</mat-icon></button>
-          <h1>Historial: {{ doc()?.title }}</h1>
+          <h1>{{ doc() ? 'Historial: ' + doc()?.title : 'Cargando historial...' }}</h1>
         </div>
         <div class="h-actions">
           <button mat-raised-button color="primary" *ngIf="doc()?.status === 'COMPLETED' && isAdmin()" (click)="downloadDocument()">
@@ -32,7 +32,7 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
         <section class="timeline-section glass-panel">
           <h3>Línea de Tiempo</h3>
           <div class="timeline">
-            <div class="timeline-item" *ngFor="let audit of mockHistory">
+            <div class="timeline-item" *ngFor="let audit of timeline()">
               <div class="t-icon" [ngClass]="audit.action.toLowerCase()">
                 <mat-icon>{{ getActionIcon(audit.action) }}</mat-icon>
               </div>
@@ -44,6 +44,9 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
                 <p>{{ audit.detail }}</p>
                 <div class="t-version" *ngIf="audit.newVersion">Versión {{ audit.newVersion }}</div>
               </div>
+            </div>
+            <div *ngIf="timeline().length === 0 && !isLoading()" class="empty-timeline">
+               No hay eventos registrados
             </div>
           </div>
         </section>
@@ -64,7 +67,7 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
             <h3>Metadatos</h3>
             <div class="meta-row"><span>Código:</span> <code>{{ doc()?.documentCode }}</code></div>
             <div class="meta-row"><span>Versión:</span> {{ doc()?.version }}</div>
-            <div class="meta-row"><span>Creador:</span> {{ doc()?.createdBy }}</div>
+            <div class="meta-row"><span>Creador:</span> {{ doc()?.createdByName }}</div>
             <div class="meta-row"><span>Fecha:</span> {{ doc()?.createdAt | dateFormat }}</div>
           </mat-card>
         </aside>
@@ -136,16 +139,55 @@ export class DocumentHistoryComponent implements OnInit {
 
   doc = signal<any>(null);
   isAdmin = this.auth.isAdmin;
+  isLoading = signal(true);
 
-  mockHistory = [
-    { userName: 'Mario Mendoza', action: 'SIGNED', timestamp: new Date('2026-02-20T10:45:00'), detail: 'Posicionó la firma en la página 1 del acta #012', newVersion: 2 },
-    { userName: 'Administrador', action: 'CREATED', timestamp: new Date('2026-02-20T10:00:00'), detail: 'Creó el documento Acta de Seguimiento #012', newVersion: 1 }
-  ];
+  timeline = computed(() => {
+    const d = this.doc();
+    if (!d) return [];
+
+    const events: any[] = [];
+
+    // 1. Creation event
+    events.push({
+      userName: d.createdByName || 'Sistema',
+      action: 'CREATED',
+      timestamp: d.createdAt,
+      detail: `Creó el documento ${d.documentCode}`
+    });
+
+    // 2. Signature events
+    d.assignedSigners.forEach((s: any) => {
+      if (s.status === 'SIGNED' && s.signedAt) {
+        events.push({
+          userName: s.userName,
+          action: 'SIGNED',
+          timestamp: s.signedAt,
+          detail: `Posicionó la firma en la página ${s.pageNumber}`
+        });
+      }
+    });
+
+    // 3. Comment events
+    d.comments.forEach((c: any) => {
+      events.push({
+        userName: c.userName,
+        action: 'COMMENTED',
+        timestamp: c.createdAt,
+        detail: c.content
+      });
+    });
+
+    // Sort descending by timestamp
+    return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  });
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
     if (id) {
-      this.docService.getDocumentById(id).subscribe(d => this.doc.set(d));
+      this.docService.getDocumentById(id).subscribe(d => {
+        this.doc.set(d);
+        this.isLoading.set(false);
+      });
     }
   }
 

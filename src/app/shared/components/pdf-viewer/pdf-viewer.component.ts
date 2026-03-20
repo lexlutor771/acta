@@ -235,6 +235,16 @@ import { DocumentSigner, SignatureSlot } from '../../../core/models/document.mod
       position: inherit !important;
     }
     mat-progress-bar { position: absolute; bottom: 0; left: 0; right: 0; }
+
+    @media (max-width: 768px) {
+      .pdf-controls { padding: 8px 16px; }
+      .page-nav span, .zoom-controls span { font-size: 11px; }
+      .viewer-wrapper { padding: 12px; min-height: 300px; }
+      .viewer-wrapper.signing-mode { padding: 8px; }
+      .pdf-content-container { min-height: 400px; }
+      .signature-overlay img { max-width: 100px; max-height: 50px; }
+      .signature-info { font-size: 8px; padding: 1px 4px; }
+    }
   `]
 })
 export class PdfViewerComponent implements OnChanges {
