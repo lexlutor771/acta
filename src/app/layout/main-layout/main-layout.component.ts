@@ -35,7 +35,7 @@ import { UserRole } from '../../core/models/user.model';
         <div class="sidebar-header">
           <div class="header-top">
             <img [src]="companyLogoUrl()" alt="AFI Logo" class="logo-img" (error)="companyLogoUrl.set('/assets/logo-afi.png')">
-            <button mat-icon-button (click)="toggleSidebar()" class="collapse-btn" *ngIf="!isMobile()" [title]="isCollapsed() ? 'Expandir' : 'Contraer'">
+            <button style="display: none;" mat-icon-button (click)="toggleSidebar()" class="collapse-btn" *ngIf="!isMobile()" [title]="isCollapsed() ? 'Expandir' : 'Contraer'">
               <mat-icon>{{ isCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
             </button>
           </div>
@@ -137,7 +137,7 @@ import { UserRole } from '../../core/models/user.model';
   `,
   styles: [`
     .layout-container {
-      height: 100vh;
+      height: 100vh;      
       background: var(--bg-color);
     }
     .app-sidebar {
