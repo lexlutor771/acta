@@ -13,6 +13,7 @@ interface DbUser {
     email: string;
     role: string;
     is_active: boolean;
+    company_id: string;
     signature_image_id: string | null;
     created_at: string;
 }
@@ -25,6 +26,7 @@ function mapDbUser(row: DbUser): User {
         email: row.email,
         role: row.role as UserRole,
         isActive: row.is_active,
+        companyId: row.company_id,
         signatureImageId: row.signature_image_id ?? undefined,
         createdAt: new Date(row.created_at)
     };

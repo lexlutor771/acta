@@ -19,6 +19,7 @@ export class SettingsService {
         return {
           id: data.id,
           companyName: data.company_name,
+          companyId: data.company_id,
           companyLogoUrl: data.company_logo_url,
           licenseStartDate: data.license_start_date ? new Date(data.license_start_date) : undefined,
           licenseEndDate: data.license_end_date ? new Date(data.license_end_date) : undefined,
@@ -37,6 +38,7 @@ export class SettingsService {
     const payload = {
       id: 1,
       company_name: settings.companyName,
+      company_id: settings.companyId,
       company_logo_url: settings.companyLogoUrl,
       license_start_date: settings.licenseStartDate?.toISOString(),
       license_end_date: settings.licenseEndDate?.toISOString(),
@@ -52,6 +54,7 @@ export class SettingsService {
         return {
           id: data.id,
           companyName: data.company_name,
+          companyId: data.company_id,
           companyLogoUrl: data.company_logo_url,
           licenseStartDate: data.license_start_date ? new Date(data.license_start_date) : undefined,
           licenseEndDate: data.license_end_date ? new Date(data.license_end_date) : undefined,

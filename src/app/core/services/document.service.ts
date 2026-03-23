@@ -37,6 +37,7 @@ export class DocumentService {
             createdByName: row.user?.name,
             createdAt: new Date(row.created_at),
             version: row.version,
+            companyId: row.company_id,
             assignedSigners: (row.document_signers || []).map((s: any) => this.mapDbToSigner(s)),
             comments: (row.document_comments || []).map((c: any) => this.mapDbToComment(c))
         };
@@ -85,6 +86,7 @@ export class DocumentService {
                 user!created_by(name)
             `)
             .neq('status', DocumentStatus.DELETED)
+            .eq('company_id', this.auth.currentUser()?.companyId)
             .order('created_at', { ascending: false })
         ).pipe(
             map(({ data, error }) => {
@@ -105,6 +107,7 @@ export class DocumentService {
                 user!created_by(name)
             `)
             .eq('id', id)
+            .eq('company_id', this.auth.currentUser()?.companyId)
             .single()
         ).pipe(
             map(({ data, error }) => {
@@ -146,6 +149,7 @@ export class DocumentService {
                     current_pdf_url: publicUrl,
                     status: formData.status || DocumentStatus.PENDING,
                     created_by: this.auth.currentUserId(),
+                    company_id: this.auth.currentUser()?.companyId,
                     version: 1
                 };
 
@@ -222,6 +226,7 @@ export class DocumentService {
                         last_modified_at: new Date()
                     })
                     .eq('id', documentId)
+                    .eq('company_id', this.auth.currentUser()?.companyId)
                     .select()
                 );
             }),
@@ -286,6 +291,7 @@ export class DocumentService {
                     .in('id', ids)
                     .neq('status', DocumentStatus.DELETED)
                     .neq('status', DocumentStatus.DRAFT)
+                    .eq('company_id', this.auth.currentUser()?.companyId)
                 ).pipe(map(({ data: docs }) => (docs || []).map(row => this.mapDbToDocument(row))));
             }),
             catchError(() => of([]))
@@ -309,6 +315,7 @@ export class DocumentService {
             .from('documents')
             .update(patch)
             .eq('id', id)
+            .eq('company_id', this.auth.currentUser()?.companyId)
             .select()
             .single()
         ).pipe(
@@ -367,6 +374,7 @@ export class DocumentService {
             .from('documents')
             .update({ status: DocumentStatus.PRINTED, last_modified_at: new Date() })
             .eq('id', id)
+            .eq('company_id', this.auth.currentUser()?.companyId)
             .select()
             .single()
         ).pipe(
@@ -385,6 +393,7 @@ export class DocumentService {
             .from('documents')
             .update({ status: DocumentStatus.DELETED, last_modified_at: new Date() })
             .eq('id', id)
+            .eq('company_id', this.auth.currentUser()?.companyId)
         ).pipe(
             map(({ error }) => {
                 if (error) throw error;

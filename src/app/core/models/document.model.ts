@@ -75,6 +75,7 @@ export interface Document {
     lastModifiedAt?: Date;
     lastModifiedBy?: string;     // userId
     version: number;
+    companyId: string;
     signatureSlots?: SignatureSlot[];  // Posiciones predefinidas
     extraSignatures?: DocumentSigner[]; // New: support for multiple signatures
     comments: DocumentComment[];

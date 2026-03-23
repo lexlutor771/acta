@@ -1,8 +1,9 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable, from, throwError } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { User, UserRole } from '../models/user.model';
 import { supabase } from '../supabase.client';
+import { AuthService } from '../auth/auth.service';
 
 interface DbUser {
     id: string;
@@ -11,6 +12,7 @@ interface DbUser {
     email: string;
     role: string;
     is_active: boolean;
+    company_id: string;
     signature_image_id: string | null;
     created_at: string;
 }
@@ -23,6 +25,7 @@ function mapDbUser(row: DbUser): User {
         email: row.email,
         role: row.role as UserRole,
         isActive: row.is_active,
+        companyId: row.company_id,
         signatureImageId: row.signature_image_id ?? undefined,
         createdAt: new Date(row.created_at)
     };
@@ -32,12 +35,14 @@ function mapDbUser(row: DbUser): User {
     providedIn: 'root'
 })
 export class UserService {
+    private auth = inject(AuthService);
 
     getUsers(): Observable<User[]> {
         return from(
             supabase
                 .from('user')
                 .select('*')
+                .eq('company_id', this.auth.currentUser()?.companyId)
                 .order('name')
                 .order('is_active')
         ).pipe(
@@ -72,7 +77,8 @@ export class UserService {
             name: userData.name,
             email: userData.email,
             role: userData.role ?? UserRole.VIEWER,
-            is_active: true
+            is_active: true,
+            company_id: this.auth.currentUser()?.companyId
         };
 
         return from(

@@ -13,5 +13,6 @@ export interface User {
     role: UserRole;
     signatureImageId?: string;   // Referencia a su imagen de firma registrada
     isActive: boolean;
+    companyId: string;
     createdAt: Date;
 }

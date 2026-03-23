@@ -55,8 +55,14 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
                 <mat-label>Nombre de la Empresa</mat-label>
                 <input matInput formControlName="companyName" placeholder="Ej: Tech Corp">
               </mat-form-field>
-              
+
               <mat-form-field appearance="outline">
+                <mat-label>ID de la Empresa</mat-label>
+                <input matInput formControlName="companyId" placeholder="Ej: AFI" maxlength="3" (input)="onCompanyIdInput($event)" style="text-transform: uppercase;">
+                <mat-hint>3 caracteres en mayúsculas</mat-hint>
+              </mat-form-field>
+              
+              <mat-form-field appearance="outline" class="full-width">
                 <mat-label>URL del Logo</mat-label>
                 <input matInput formControlName="companyLogoUrl" placeholder="https://...">
               </mat-form-field>
@@ -94,7 +100,7 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
               <mat-form-field appearance="outline">
                 <mat-label>Contraseña de Aplicación</mat-label>
                 <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="smtpPassword" placeholder="xxxx xxxx xxxx xxxx">
-                <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button">
+                <button disabled="{{isEditMode() ? false : true}}" mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button">
                   <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
                 </button>
               </mat-form-field>
@@ -129,6 +135,7 @@ import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
     .helper-text a { color: var(--primary-color); text-decoration: none; font-weight: 700; }
     
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .full-width { grid-column: 1 / -1; }
     mat-form-field { width: 100%; }
 
     .form-actions { display: flex; justify-content: flex-end; margin-top: 32px; }
@@ -156,12 +163,19 @@ export class SettingsComponent implements OnInit {
 
   settingsForm: FormGroup = this.fb.group({
     companyName: ['', Validators.required],
+    companyId: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(3)]],
     companyLogoUrl: [''],
     licenseStartDate: [''],
     licenseEndDate: [''],
     smtpEmail: ['', [Validators.email]],
     smtpPassword: ['']
   });
+
+  onCompanyIdInput(event: any) {
+    const input = event.target as HTMLInputElement;
+    const val = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    this.settingsForm.get('companyId')?.setValue(val.substring(0, 3), { emitEvent: false });
+  }
 
   ngOnInit() {
     this.settingsForm.disable();
