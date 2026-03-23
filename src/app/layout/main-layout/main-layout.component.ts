@@ -31,48 +31,53 @@ import { UserRole } from '../../core/models/user.model';
   ],
   template: `
     <mat-sidenav-container class="layout-container">
-      <mat-sidenav #sidenav [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="app-sidebar" [fixedInViewport]="true">
+      <mat-sidenav #sidenav [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="app-sidebar" [fixedInViewport]="true" [class.collapsed]="isCollapsed() && !isMobile()">
         <div class="sidebar-header">
-          <img [src]="companyLogoUrl()" alt="AFI Logo" class="logo-img" (error)="companyLogoUrl.set('/assets/logo-afi.png')">
-          <div class="sub-text">Control Documentario</div>
-          <div class="sub-text">Actas</div>
-          <div class="sub-text" style="color: #cfd3d7ff ;">Demo Version</div>
+          <div class="header-top">
+            <img [src]="companyLogoUrl()" alt="AFI Logo" class="logo-img" (error)="companyLogoUrl.set('/assets/logo-afi.png')">
+            <button mat-icon-button (click)="toggleSidebar()" class="collapse-btn" *ngIf="!isMobile()" [title]="isCollapsed() ? 'Expandir' : 'Contraer'">
+              <mat-icon>{{ isCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+            </button>
+          </div>
+          <div class="sub-text" *ngIf="!isCollapsed()">Control Documentario</div>
+          <div class="sub-text" *ngIf="!isCollapsed()">Actas</div>
+          <div class="sub-text" *ngIf="!isCollapsed()" style="color: #cfd3d7ff ;">Demo Version</div>
         </div>
 
-        <mat-nav-list class="nav-list">
-          <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link" *ngIf="canSeeDashboard()">
+        <mat-nav-list class="nav-list" [class.collapsed-list]="isCollapsed() && !isMobile()">
+          <a mat-list-item routerLink="/dashboard" routerLinkActive="active-link" *ngIf="canSeeDashboard()" [title]="isCollapsed() ? 'Dashboard' : ''">
             <mat-icon matListItemIcon>dashboard</mat-icon>
-            <span matListItemTitle>Dashboard</span>
+            <span matListItemTitle *ngIf="!isCollapsed()">Dashboard</span>
           </a>
 
-          <a mat-list-item routerLink="/documents" routerLinkActive="active-link">
+          <a mat-list-item routerLink="/documents" routerLinkActive="active-link" [title]="isCollapsed() ? 'Documentos' : ''">
             <mat-icon matListItemIcon>description</mat-icon>
-            <span matListItemTitle>Documentos</span>
+            <span matListItemTitle *ngIf="!isCollapsed()">Documentos</span>
             <span matListItemMeta class="nav-badge" *ngIf="pendingCount() > 0">{{ pendingCount() }}</span>
           </a>
 
-          <a mat-list-item routerLink="/documents/upload" routerLinkActive="active-link" *ngIf="isAdmin()">
+          <a mat-list-item routerLink="/documents/upload" routerLinkActive="active-link" *ngIf="isAdmin()" [title]="isCollapsed() ? 'Subir Acta' : ''">
             <mat-icon matListItemIcon>cloud_upload</mat-icon>
-            <span matListItemTitle>Subir Acta</span>
+            <span matListItemTitle *ngIf="!isCollapsed()">Subir Acta</span>
           </a>
 
-          <a mat-list-item routerLink="/signatures" routerLinkActive="active-link">
+          <a mat-list-item routerLink="/signatures" routerLinkActive="active-link" [title]="isCollapsed() ? 'Mis Firmas' : ''">
             <mat-icon matListItemIcon>gesture</mat-icon>
-            <span matListItemTitle>Mis Firmas</span>
+            <span matListItemTitle *ngIf="!isCollapsed()">Mis Firmas</span>
           </a>
 
-          <a mat-list-item routerLink="/users" routerLinkActive="active-link" *ngIf="isAdmin()">
+          <a mat-list-item routerLink="/users" routerLinkActive="active-link" *ngIf="isAdmin()" [title]="isCollapsed() ? 'Usuarios' : ''">
             <mat-icon matListItemIcon>group</mat-icon>
-            <span matListItemTitle>Usuarios</span>
+            <span matListItemTitle *ngIf="!isCollapsed()">Usuarios</span>
           </a>
 
-          <a mat-list-item routerLink="/settings" routerLinkActive="active-link" *ngIf="isAdmin()">
+          <a mat-list-item routerLink="/settings" routerLinkActive="active-link" *ngIf="isAdmin()" [title]="isCollapsed() ? 'Configuración' : ''">
             <mat-icon matListItemIcon>settings</mat-icon>
-            <span matListItemTitle>Configuración</span>
+            <span matListItemTitle *ngIf="!isCollapsed()">Configuración</span>
           </a>
         </mat-nav-list>
 
-        <div class="sidebar-footer">
+        <div class="sidebar-footer" *ngIf="!isCollapsed()">
           <div class="version">v1.1.0-beta</div>
           <div class="company">2026 © comlar</div>
         </div>
@@ -141,16 +146,52 @@ import { UserRole } from '../../core/models/user.model';
       border-right: 1px solid var(--border-color);
       display: flex;
       flex-direction: column;
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow-x: hidden;
+    }
+    .app-sidebar.collapsed {
+      width: 72px;
     }
     .sidebar-header {
       padding: 32px 24px;
       background: linear-gradient(135deg, rgba(255, 122, 41, 0.05), transparent);
+      transition: padding 0.25s ease;
+    }
+    .collapsed .sidebar-header {
+      padding: 32px 12px 16px;
+      text-align: center;
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      min-height: 48px;
+    }
+    .collapsed .header-top {
+      flex-direction: column;
+      gap: 12px;
+    }
+    .collapse-btn {
+      width: 32px !important;
+      height: 32px !important;
+      line-height: 32px !important;
+      background: rgba(0,0,0,0.03);
+      color: var(--text-muted);
+    }
+    .collapse-btn:hover {
+      background: rgba(255, 122, 41, 0.1);
+      color: var(--primary-color);
     }
     .logo-img {
       height: 40px;
       width: auto;
-      margin-bottom: 4px;
-      display: block;
+      max-width: 100%;
+      object-fit: contain;
+      transition: all 0.25s ease;
+    }
+    .collapsed .logo-img {
+      height: 32px;
     }
     .sub-text {
       font-size: 10px;
@@ -162,6 +203,7 @@ import { UserRole } from '../../core/models/user.model';
     .nav-list {
       flex: 1;
       padding-top: 16px;
+      transition: all 0.25s ease;
     }
     .nav-list a {
       margin: 2px 12px;
@@ -169,6 +211,16 @@ import { UserRole } from '../../core/models/user.model';
       height: 44px;
       color: var(--text-muted);
       transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+    }
+    .collapsed-list a {
+      margin: 2px 8px;
+      padding: 0 !important;
+      justify-content: center;
+    }
+    .collapsed-list mat-icon {
+      margin: 0 !important;
     }
     .nav-list a:hover {
       background: rgba(0, 0, 0, 0.02);
@@ -291,6 +343,7 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
   private router = inject(Router);
 
   isMobile = signal(false);
+  isCollapsed = signal(false);
   private resizeObserver: any;
   companyLogoUrl = signal<string>('/assets/logo-afi.png');
 
@@ -329,6 +382,10 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
 
   canSeeDashboard(): boolean {
     return this.isAdmin() || this.isAuditor();
+  }
+
+  toggleSidebar() {
+    this.isCollapsed.set(!this.isCollapsed());
   }
 
   logout() {
