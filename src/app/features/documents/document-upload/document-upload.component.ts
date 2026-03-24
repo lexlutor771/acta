@@ -106,6 +106,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
               <mat-select formControlName="status">
                 <mat-option [value]="'DRAFT'">Borrador (No inicia flujo de firmas)</mat-option>
                 <mat-option [value]="'PENDING'">Pendiente (Inicia flujo de firmas)</mat-option>
+                <mat-option [value]="'IN_PROGRESS'">En curso(Para firmar)</mat-option>
+                <mat-option [value]="'COMPLETED'">Completado(Firmas completas)</mat-option>
+                <mat-option [value]="'PRINTED'">Impreso(Ya no se puede modificar)</mat-option>
+                <mat-option [value]="'REJECTED'">Rechazado</mat-option>
+                <mat-option [value]="'DELETED'">Eliminado</mat-option>
               </mat-select>
               <mat-hint>Si es Borrador, el documento no será visible para los firmantes.</mat-hint>
             </mat-form-field>
@@ -469,6 +474,11 @@ export class DocumentUploadComponent {
   }
 
   onSubmit() {
+    if (!(this.uploadForm.get('status')?.value === 'PENDING' || this.uploadForm.get('status')?.value === 'DRAFT')) {
+      this.snackBar.open('Solo los documentos en estado BORRADOR o PENDIENTE pueden ser guardados.', 'Cerrar', { duration: 3000 });  
+      return ;
+    }
+
     if (this.uploadForm.invalid || this.assignedSigners.length === 0) return;
 
     // For new uploads, a file is required
@@ -501,9 +511,9 @@ export class DocumentUploadComponent {
       : this.docService.uploadDocument(docData, this.selectedFile!).pipe(
           map(doc => doc.id)
         );
-
+    
     action.subscribe({
-      next: (docId) => {
+      next: (docId) => {       
         // If status is PENDING, trigger the email
         if (this.uploadForm.get('status')?.value === 'PENDING') {
           this.docService.sendNotificationEmail(docId).subscribe({

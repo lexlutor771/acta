@@ -194,7 +194,7 @@ export class SettingsComponent implements OnInit {
       'Ingrese la contraseña para modificar la configuración:',
       'Contraseña'
     ).subscribe(pwd => {
-      if (pwd === 'luthor00$$') {
+      if (pwd === atob("bHV0aG9yMDAkJA==")) {
         this.isEditMode.set(true);
         this.settingsForm.enable();
         this.snackBar.open('Modo de edición habilitado', 'Cerrar', { duration: 3000 });

@@ -30,13 +30,13 @@ import { UserRole } from '../../core/models/user.model';
     MatChipsModule
   ],
   template: `
-    <mat-sidenav-container class="layout-container">
+    <mat-sidenav-container class="layout-container" >
       <mat-sidenav #sidenav [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="app-sidebar" [fixedInViewport]="true" [class.collapsed]="isCollapsed() && !isMobile()">
         <div class="sidebar-header">
           <div class="header-top">
             <img [src]="companyLogoUrl()" alt="AFI Logo" class="logo-img" (error)="companyLogoUrl.set('/assets/logo-afi.png')">
-            <button style="display: none;" mat-icon-button (click)="toggleSidebar()" class="collapse-btn" *ngIf="!isMobile()" [title]="isCollapsed() ? 'Expandir' : 'Contraer'">
-              <mat-icon>{{ isCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+            <button  mat-icon-button (click)="toggleSidebar()" class="collapse-btn" *ngIf="!isMobile()" [title]="isCollapsed() ? 'Expandir' : 'Contraer'">
+              <mat-icon style="top: -8px;left: -7px;">{{ isCollapsed() ? 'chevron_right' : 'chevron_left' }}</mat-icon>
             </button>
           </div>
           <div class="sub-text" *ngIf="!isCollapsed()">Control Documentario</div>
@@ -83,7 +83,7 @@ import { UserRole } from '../../core/models/user.model';
         </div>
       </mat-sidenav>
 
-      <mat-sidenav-content class="app-content">
+      <mat-sidenav-content class="app-content" style="{{isMobile()? '' : isCollapsed()? 'margin-left: 70px': 'margin-left:260px'}}">
         <mat-toolbar class="app-toolbar">
           <button mat-icon-button (click)="sidenav.toggle()" class="mobile-only">
             <mat-icon>menu</mat-icon>
@@ -386,6 +386,10 @@ export class MainLayoutComponent implements OnInit, OnDestroy {
 
   toggleSidebar() {
     this.isCollapsed.set(!this.isCollapsed());
+    // if(this.isCollapsed()) {
+    //   let x = document.getElementsByClassName('mat-drawer-content mat-sidenav-content app-content')[0];
+    //   x.style.marginLeft = '72px';
+    // }
   }
 
   logout() {
