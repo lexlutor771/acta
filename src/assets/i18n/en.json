@@ -32,8 +32,19 @@
     "filters": "Filters",
     "role": "Role",
     "cancelEdit": "CANCEL EDIT",
-    "reset": "RESET",
-    "saving": "SAVING..."
+    "reset": "CLEAR",
+    "saving": "SAVING...",
+    "active": "Active",
+    "inactive": "Inactive",
+    "yes": "Yes",
+    "no": "No",
+    "back": "Back",
+    "next": "Next",
+    "confirm": "Confirm",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "required": "Required"
   },
   "auth": {
     "login": "LOGIN",
