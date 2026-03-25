@@ -20,6 +20,8 @@
     "@angular/material": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
+    "@ngx-translate/core": "^17.0.0",
+    "@ngx-translate/http-loader": "^17.0.0",
     "@supabase/supabase-js": "^2.99.2",
     "date-fns": "^4.1.0",
     "ng2-pdf-viewer": "^10.4.0",

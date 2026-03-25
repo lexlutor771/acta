@@ -9,6 +9,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { TranslateModule } from '@ngx-translate/core';
 import { DocumentService } from '../../../core/services/document.service';
 import { SignatureService } from '../../../core/services/signature.service';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -20,6 +21,7 @@ import { DateFormatPipe } from '../../../shared/pipes/date-format.pipe';
 import { SignatureImage } from '../../../core/models/signature.model';
 import { DocumentStatus, SignaturePlacement } from '../../../core/models/document.model';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-document-sign',
@@ -37,7 +39,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     SignaturePadComponent,
     StatusBadgeComponent,
     DateFormatPipe,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    TranslateModule,
   ],
   template: `
     <div class="sign-root">
@@ -49,54 +53,74 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
             <div class="meta">
               <code class="code">{{ doc()?.documentCode }}</code>
               <span class="divider">•</span>
-              <span>Reunión #{{ doc()?.meetingNumber }}</span>
+              <span>{{ 'documents.meeting' | translate }} #{{ doc()?.meetingNumber }}</span>
               <span class="divider">•</span>
-              <span>{{ doc()?.meetingDate | dateFormat:'PPP' }}</span>
+              <span>{{ doc()?.meetingDate | dateFormat: 'PPP' }}</span>
             </div>
           </div>
         </div>
         <div class="header-actions" *ngIf="doc()">
           <app-status-badge [status]="doc()!.status"></app-status-badge>
-          <button mat-raised-button color="accent" (click)="saveSignature()" [disabled]="!canConfirm() || loading()">
-            <ng-container *ngIf="!loading()">CONFIRMAR FIRMA</ng-container>
-            <ng-container *ngIf="loading()"><mat-spinner diameter="20" style="display:inline-block; margin-right:8px; vertical-align: middle; stroke: white;"></mat-spinner><span style="vertical-align: middle;">GUARDANDO...</span></ng-container>
+          <button
+            mat-raised-button
+            color="accent"
+            (click)="saveSignature()"
+            [disabled]="!canConfirm() || loading()"
+          >
+            <ng-container *ngIf="!loading()">{{
+              'documents.confirmSignature' | translate
+            }}</ng-container>
+            <ng-container *ngIf="loading()"
+              ><mat-spinner
+                diameter="20"
+                style="display:inline-block; margin-right:8px; vertical-align: middle; stroke: white;"
+              ></mat-spinner
+              ><span style="vertical-align: middle;">{{
+                'common.saving' | translate
+              }}</span></ng-container
+            >
           </button>
         </div>
       </header>
 
       <div class="sign-layout" *ngIf="doc()">
         <div class="pdf-panel">
-          <app-pdf-viewer 
-            [src]="doc()!.currentPdfUrl" 
+          <app-pdf-viewer
+            [src]="doc()!.currentPdfUrl"
             [signatures]="filteredAssignedSigners()"
             [extraSignatures]="previewSignatures()"
             [signingMode]="step() === 3"
             (coordinateSelected)="onPositionSelected($event)"
             (signatureMoved)="onSignatureMoved($event)"
-            (signatureSelected)="selectPlacement($event)">
+            (signatureSelected)="selectPlacement($event)"
+          >
           </app-pdf-viewer>
         </div>
 
         <aside class="side-panel glass-panel">
           <mat-tab-group class="side-tabs">
-            <mat-tab label="FIRMAR">
+            <mat-tab [label]="'documents.sign' | translate">
               <div class="signing-workflow">
                 <div class="step" [class.active]="step() === 1">
                   <div class="step-num">1</div>
                   <div class="step-content">
-                    <h4>Seleccionar Firma</h4>
+                    <h4>{{ 'documents.selectSignature' | translate }}</h4>
                     <div class="saved-signatures-grid" *ngIf="userSignatures().length > 0">
-                      <div class="signature-card" 
-                           *ngFor="let sig of userSignatures()"
-                           [class.selected]="sig.id === mySignature()?.id"
-                           (click)="mySignature.set(sig); step.set(3)">
-                        <img [src]="sig.imageUrl" alt="Firma guardada">
-                        <div class="badge" *ngIf="sig.id === mySignature()?.id"><mat-icon>check</mat-icon></div>
+                      <div
+                        class="signature-card"
+                        *ngFor="let sig of userSignatures()"
+                        [class.selected]="sig.id === mySignature()?.id"
+                        (click)="mySignature.set(sig); step.set(3)"
+                      >
+                        <img [src]="sig.imageUrl" alt="Firma guardada" />
+                        <div class="badge" *ngIf="sig.id === mySignature()?.id">
+                          <mat-icon>check</mat-icon>
+                        </div>
                       </div>
                     </div>
                     <div class="actions" *ngIf="isAdmin()">
                       <button mat-stroked-button (click)="step.set(2)">
-                        <mat-icon>add</mat-icon> NUEVA FIRMA
+                        <mat-icon>add</mat-icon> {{ 'signatures.add' | translate }}
                       </button>
                     </div>
                   </div>
@@ -105,29 +129,49 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
                 <div class="step" [class.active]="step() === 2" *ngIf="step() === 2">
                   <div class="step-num">2</div>
                   <div class="step-content">
-                    <h4>Dibujar Nueva Firma</h4>
-                    <p class="instruction">Dibuja tu firma en el recuadro para guardarla y usarla.</p>
-                    <app-signature-pad (signatureSaved)="onSignatureCreated($event)"></app-signature-pad>
-                    <button mat-button (click)="step.set(1)" class="mt-2">CANCELAR</button>
+                    <h4>{{ 'documents.drawNewSignature' | translate }}</h4>
+                    <p class="instruction">
+                      {{ 'documents.drawSignatureInstruction' | translate }}
+                    </p>
+                    <app-signature-pad
+                      (signatureSaved)="onSignatureCreated($event)"
+                    ></app-signature-pad>
+                    <button mat-button (click)="step.set(1)" class="mt-2">
+                      {{ 'common.cancel' | translate }}
+                    </button>
                   </div>
                 </div>
 
                 <div class="step" [class.active]="step() === 3">
                   <div class="step-num">3</div>
                   <div class="step-content">
-                    <h4>Posicionar en PDF</h4>
-                    <p class="instruction">Haz clic sobre el visor PDF para estampar la firma. Puedes agregar varias firmas en diferentes páginas.</p>
-                    
+                    <h4>{{ 'documents.positionInPdf' | translate }}</h4>
+                    <p class="instruction">{{ 'documents.positionInstruction' | translate }}</p>
+
                     <div class="placements-list" *ngIf="placements().length > 0">
-                      <div class="placement-item" *ngFor="let p of placements(); let i = index" 
-                           [class.selected]="selectedPlacementIndex() === i"
-                           (click)="selectPlacement(i)">
+                      <div
+                        class="placement-item"
+                        *ngFor="let p of placements(); let i = index"
+                        [class.selected]="selectedPlacementIndex() === i"
+                        (click)="selectPlacement(i)"
+                      >
                         <mat-icon color="primary">location_on</mat-icon>
                         <div class="p-info">
-                          <span>Pág {{ p.page }}, X: {{ p.x.toFixed(0) }}%, Y: {{ p.y.toFixed(0) }}%</span>
-                          <small>Escala: {{ (p.scale * 100).toFixed(0) }}%</small>
+                          <span
+                            >{{ 'documents.page' | translate }} {{ p.page }}, X:
+                            {{ p.x.toFixed(0) }}%, Y: {{ p.y.toFixed(0) }}%</span
+                          >
+                          <small
+                            >{{ 'documents.scale' | translate }}:
+                            {{ (p.scale * 100).toFixed(0) }}%</small
+                          >
                         </div>
-                        <button mat-icon-button (click)="removePlacement(i); $event.stopPropagation()" color="warn" matTooltip="Eliminar esta firma">
+                        <button
+                          mat-icon-button
+                          (click)="removePlacement(i); $event.stopPropagation()"
+                          color="warn"
+                          [matTooltip]="'common.delete' | translate"
+                        >
                           <mat-icon>delete_outline</mat-icon>
                         </button>
                       </div>
@@ -135,40 +179,57 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
                     <div class="scale-control" *ngIf="placements().length > 0 || lastPos()">
                       <div class="scale-header">
-                        <label>Tamaño de firma: {{ (signatureScale() * 100) | number:'1.0-0' }}%</label>
-                        <mat-icon matTooltip="Ajusta el tamaño de la firma seleccionada o de la próxima que agregues">help_outline</mat-icon>
+                        <label
+                          >{{ 'documents.signatureSize' | translate }}:
+                          {{ signatureScale() * 100 | number: '1.0-0' }}%</label
+                        >
+                        <mat-icon [matTooltip]="'documents.sizeTooltip' | translate"
+                          >help_outline</mat-icon
+                        >
                       </div>
-                      <input type="range" class="scale-slider" min="0.3" max="2" step="0.1" [value]="signatureScale()" (input)="onScaleChange($event)">
-                      <p class="hint" *ngIf="selectedPlacementIndex() !== null">Redimensionando firma seleccionada</p>
-                      <p class="hint" *ngIf="selectedPlacementIndex() === null">Afecta a la próxima firma que coloques</p>
+                      <input
+                        type="range"
+                        class="scale-slider"
+                        min="0.3"
+                        max="2"
+                        step="0.1"
+                        [value]="signatureScale()"
+                        (input)="onScaleChange($event)"
+                      />
+                      <p class="hint" *ngIf="selectedPlacementIndex() !== null">
+                        {{ 'documents.resizingSelected' | translate }}
+                      </p>
+                      <p class="hint" *ngIf="selectedPlacementIndex() === null">
+                        {{ 'documents.affectsNext' | translate }}
+                      </p>
                     </div>
 
                     <div class="empty-placements" *ngIf="placements().length === 0">
                       <mat-icon>touch_app</mat-icon>
-                      <p>Haz clic en el documento para firmar</p>
+                      <p>{{ 'documents.clickToSign' | translate }}</p>
                     </div>
 
                     <div class="printed-warning" *ngIf="doc()?.status === 'PRINTED'">
                       <mat-icon>lock</mat-icon>
-                      <p>Documento IMPRESO. Ya no se pueden realizar cambios.</p>
+                      <p>{{ 'documents.printedNoChanges' | translate }}</p>
                     </div>
                   </div>
                 </div>
               </div>
             </mat-tab>
 
-            <mat-tab label="DETALLE">
+            <mat-tab [label]="'documents.details' | translate">
               <div class="doc-details">
                 <section>
-                  <h5>Ubicación</h5>
+                  <h5>{{ 'documents.location' | translate }}</h5>
                   <p>{{ doc()?.location }}</p>
                 </section>
                 <section>
-                  <h5>Tipo de Reunión</h5>
+                  <h5>{{ 'documents.meetingType' | translate }}</h5>
                   <p>{{ doc()?.meetingType }}</p>
                 </section>
                 <section>
-                  <h5>Firmantes Asignados</h5>
+                  <h5>{{ 'documents.assignedSigners' | translate }}</h5>
                   <div class="signer-list">
                     <div class="signer" *ngFor="let s of doc()?.assignedSigners">
                       <mat-icon [color]="s.status === 'SIGNED' ? 'primary' : 'disabled'">
@@ -184,20 +245,29 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
               </div>
             </mat-tab>
 
-            <mat-tab label="CHAT">
+            <mat-tab [label]="'documents.chat' | translate">
               <div class="comments-section">
                 <div class="history">
                   <div class="comment" *ngFor="let c of doc()?.comments">
                     <strong>{{ c.userName }}</strong>
                     <p>{{ c.content }}</p>
-                    <span>{{ c.createdAt | date:'short' }}</span>
+                    <span>{{ c.createdAt | date: 'short' }}</span>
                   </div>
                 </div>
                 <div class="comment-input">
                   <mat-form-field appearance="outline">
-                    <input matInput placeholder="Escribir comentario..." #commentText>
+                    <input
+                      matInput
+                      [placeholder]="'documents.writeComment' | translate"
+                      #commentText
+                    />
                   </mat-form-field>
-                  <button style="border-radius: 4px;" mat-mini-fab color="primary" (click)="addComment(commentText.value); commentText.value='' ">
+                  <button
+                    style="border-radius: 4px;"
+                    mat-mini-fab
+                    color="primary"
+                    (click)="addComment(commentText.value); commentText.value = ''"
+                  >
                     <mat-icon>send</mat-icon>
                   </button>
                 </div>
@@ -208,128 +278,547 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
       </div>
     </div>
   `,
-  styles: [`
-    .sign-root { min-height: calc(100vh - 120px); display: flex; flex-direction: column; gap: 24px; padding-bottom: 40px; }
-    .sign-header { display: flex; justify-content: space-between; align-items: center; }
-    .header-main { display: flex; align-items: center; gap: 12px; }
-    .header-titles h1 { font-size: 24px; font-weight: 900; margin: 0; color: var(--accent-color); }
-    .meta { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-muted); font-weight: 500; }
-    .meta code { background: #f1f5f9; color: var(--accent-color); padding: 4px 8px; border-radius: 6px; font-weight: 700; }
-    .meta .divider { opacity: 0.3; }
-    .header-actions { display: flex; align-items: center; gap: 16px; }
+  styles: [
+    `
+      .sign-root {
+        min-height: calc(100vh - 120px);
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding-bottom: 40px;
+      }
+      .sign-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .header-main {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .header-titles h1 {
+        font-size: 24px;
+        font-weight: 900;
+        margin: 0;
+        color: var(--accent-color);
+      }
+      .meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+      .meta code {
+        background: #f1f5f9;
+        color: var(--accent-color);
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-weight: 700;
+      }
+      .meta .divider {
+        opacity: 0.3;
+      }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
 
-    .sign-layout { flex: 1; display: grid; grid-template-columns: 1fr 380px; gap: 32px; overflow: visible; }
-    .pdf-panel { height: 100%; border-radius: 20px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.02); min-height: 500px; display: flex; flex-direction: column; }
-    .side-panel { display: flex; flex-direction: column; min-height: 600px; border: 1px solid var(--border-color); background: white; }
-    .side-tabs { height: 100%; display: flex; flex-direction: column; }
-    ::ng-deep .mat-mdc-tab-body-wrapper { flex: 1; overflow-y: auto; }
-    ::ng-deep .mat-mdc-tab-header { border-bottom: 1px solid var(--border-color); }
+      .sign-layout {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 32px;
+        overflow: visible;
+      }
+      .pdf-panel {
+        height: 100%;
+        border-radius: 20px;
+        border: 1px solid var(--border-color);
+        background: rgba(0, 0, 0, 0.02);
+        min-height: 500px;
+        display: flex;
+        flex-direction: column;
+      }
+      .side-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 600px;
+        border: 1px solid var(--border-color);
+        background: white;
+      }
+      .side-tabs {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      ::ng-deep .mat-mdc-tab-body-wrapper {
+        flex: 1;
+        overflow-y: auto;
+      }
+      ::ng-deep .mat-mdc-tab-header {
+        border-bottom: 1px solid var(--border-color);
+      }
 
-    .signing-workflow { padding: 32px; display: flex; flex-direction: column; gap: 40px; }
-    .saved-signatures-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .signature-card { 
-      position: relative; border: 2px solid var(--border-color); border-radius: 12px; padding: 12px; 
-      cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); background: white;
-      display: flex; align-items: center; justify-content: center; min-height: 80px;
-    }
-    .signature-card:hover { border-color: var(--primary-color); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .signature-card.selected { border-color: var(--primary-color); background: rgba(255, 122, 41, 0.02); box-shadow: 0 4px 20px rgba(255, 122, 41, 0.15); }
-    .signature-card img { max-width: 100%; max-height: 60px; filter: grayscale(1) opacity(0.8); transition: all 0.2s; }
-    .signature-card.selected img { filter: grayscale(0) opacity(1); }
-    .signature-card .badge { position: absolute; top: -8px; right: -8px; background: var(--primary-color); color: white; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-    .signature-card .badge mat-icon { font-size: 14px; width: 14px; height: 14px; }
-    .actions { margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; justify-content: center; }
-    .mt-2 { margin-top: 12px; }
+      .signing-workflow {
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+      }
+      .saved-signatures-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .signature-card {
+        position: relative;
+        border: 2px solid var(--border-color);
+        border-radius: 12px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 80px;
+      }
+      .signature-card:hover {
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+      .signature-card.selected {
+        border-color: var(--primary-color);
+        background: rgba(255, 122, 41, 0.02);
+        box-shadow: 0 4px 20px rgba(255, 122, 41, 0.15);
+      }
+      .signature-card img {
+        max-width: 100%;
+        max-height: 60px;
+        filter: grayscale(1) opacity(0.8);
+        transition: all 0.2s;
+      }
+      .signature-card.selected img {
+        filter: grayscale(0) opacity(1);
+      }
+      .signature-card .badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: var(--primary-color);
+        color: white;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .signature-card .badge mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+      .actions {
+        margin-top: 16px;
+        border-top: 1px solid var(--border-color);
+        padding-top: 16px;
+        display: flex;
+        justify-content: center;
+      }
+      .mt-2 {
+        margin-top: 12px;
+      }
 
-    .step { display: flex; gap: 20px; opacity: 0.45; transition: all 0.3s ease; }
-    .step.active { opacity: 1; }
-    .step-num { width: 32px; height: 32px; border-radius: 10px; background: #f1f5f9; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; color: var(--accent-color); }
-    .step.active .step-num { background: var(--primary-color); color: white; box-shadow: 0 4px 10px rgba(255, 122, 41, 0.3); }
-    .step h4 { font-size: 15px; font-weight: 800; margin-bottom: 8px; color: var(--accent-color); }
-    .step-content { flex: 1; }
-    .instruction { font-size: 13px; line-height: 1.6; color: var(--text-muted); font-weight: 500; }
+      .step {
+        display: flex;
+        gap: 20px;
+        opacity: 0.45;
+        transition: all 0.3s ease;
+      }
+      .step.active {
+        opacity: 1;
+      }
+      .step-num {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 900;
+        color: var(--accent-color);
+      }
+      .step.active .step-num {
+        background: var(--primary-color);
+        color: white;
+        box-shadow: 0 4px 10px rgba(255, 122, 41, 0.3);
+      }
+      .step h4 {
+        font-size: 15px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        color: var(--accent-color);
+      }
+      .step-content {
+        flex: 1;
+      }
+      .instruction {
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
 
-    .doc-details { padding: 32px; display: flex; flex-direction: column; gap: 24px; }
-    .doc-details h5 { font-size: 11px; text-transform: uppercase; color: var(--primary-color); margin-bottom: 4px; }
-    .signer-list { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
-    .signer { display: flex; align-items: center; gap: 12px; }
-    .s-info { display: flex; flex-direction: column; }
-    .s-info span { font-size: 13px; font-weight: 600; }
-    .s-info small { font-size: 11px; opacity: 0.5; }
+      .doc-details {
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .doc-details h5 {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: var(--primary-color);
+        margin-bottom: 4px;
+      }
+      .signer-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .signer {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .s-info {
+        display: flex;
+        flex-direction: column;
+      }
+      .s-info span {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .s-info small {
+        font-size: 11px;
+        opacity: 0.5;
+      }
 
-    .comments-section { height: 100%; display: flex; flex-direction: column; }
-    .history { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; background: #fafafa; }
-    .comment { background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .comment strong { font-size: 12px; display: block; margin-bottom: 4px; color: var(--accent-color); }
-    .comment p { font-size: 13px; margin: 0 0 4px; }
-    .comment span { font-size: 10px; opacity: 0.3; }
-    .comment-input { padding: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 8px; align-items: center; background: white; }
-    .comment-input mat-form-field { flex: 1; margin-bottom: -1.25em; }
+      .comments-section {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .history {
+        flex: 1;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        overflow-y: auto;
+        background: #fafafa;
+      }
+      .comment {
+        background: white;
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+      }
+      .comment strong {
+        font-size: 12px;
+        display: block;
+        margin-bottom: 4px;
+        color: var(--accent-color);
+      }
+      .comment p {
+        font-size: 13px;
+        margin: 0 0 4px;
+      }
+      .comment span {
+        font-size: 10px;
+        opacity: 0.3;
+      }
+      .comment-input {
+        padding: 16px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        background: white;
+      }
+      .comment-input mat-form-field {
+        flex: 1;
+        margin-bottom: -1.25em;
+      }
 
-    .selected-position-ghost { position: absolute; z-index: 10; pointer-events: none; opacity: 0.8; transform-origin: center; transition: transform 0.1s linear; }
-    .selected-position-ghost img { max-width: 140px; max-height: 70px; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2)); }
+      .selected-position-ghost {
+        position: absolute;
+        z-index: 10;
+        pointer-events: none;
+        opacity: 0.8;
+        transform-origin: center;
+        transition: transform 0.1s linear;
+      }
+      .selected-position-ghost img {
+        max-width: 140px;
+        max-height: 70px;
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+      }
 
-    .scale-control { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); }
-    .scale-control label { font-size: 11px; font-weight: 800; color: var(--accent-color); text-transform: uppercase; }
-    .scale-slider { width: 100%; accent-color: var(--primary-color); }
+      .scale-control {
+        margin-top: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: #f8fafc;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+      }
+      .scale-control label {
+        font-size: 11px;
+        font-weight: 800;
+        color: var(--accent-color);
+        text-transform: uppercase;
+      }
+      .scale-slider {
+        width: 100%;
+        accent-color: var(--primary-color);
+      }
 
-    @media (max-width: 1000px) {
-      .sign-layout { grid-template-columns: 1fr; overflow: auto; }
-      .side-panel { height: auto; }
-    }
+      @media (max-width: 1000px) {
+        .sign-layout {
+          grid-template-columns: 1fr;
+          overflow: auto;
+        }
+        .side-panel {
+          height: auto;
+        }
+      }
 
-    @media (max-width: 768px) {
-      .header-main { align-items: flex-start; gap: 8px; }
-      .header-main button { flex-shrink: 0; margin-top: -6px; margin-left: -8px; }
-      .sign-header { flex-direction: column; align-items: flex-start; gap: 16px; }
-      .header-actions { width: 100%; justify-content: flex-start; }
-      .header-actions button { width: 100%; }
-      .meta { flex-wrap: wrap; }
-      .header-titles h1 { font-size: 20px; line-height: 1.3; margin-top: 2px; }
-      .pdf-panel { min-height: 400px; border-radius: 12px; }
-      .side-panel { min-height: auto; }
-      .sign-root { padding-bottom: 20px; gap: 16px; }
-      .signing-workflow { padding: 20px; gap: 24px; }
-      .doc-details, .comment-input, .history { padding: 16px; }
-    }
+      @media (max-width: 768px) {
+        .header-main {
+          align-items: flex-start;
+          gap: 8px;
+        }
+        .header-main button {
+          flex-shrink: 0;
+          margin-top: -6px;
+          margin-left: -8px;
+        }
+        .sign-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 16px;
+        }
+        .header-actions {
+          width: 100%;
+          justify-content: flex-start;
+        }
+        .header-actions button {
+          width: 100%;
+        }
+        .meta {
+          flex-wrap: wrap;
+        }
+        .header-titles h1 {
+          font-size: 20px;
+          line-height: 1.3;
+          margin-top: 2px;
+        }
+        .pdf-panel {
+          min-height: 400px;
+          border-radius: 12px;
+        }
+        .side-panel {
+          min-height: auto;
+        }
+        .sign-root {
+          padding-bottom: 20px;
+          gap: 16px;
+        }
+        .signing-workflow {
+          padding: 20px;
+          gap: 24px;
+        }
+        .doc-details,
+        .comment-input,
+        .history {
+          padding: 16px;
+        }
+      }
 
-    @media (max-width: 640px) {
-      .sign-root { min-height: auto; padding-bottom: 16px; }
-      .sign-header { padding: 0 12px; }
-      .header-actions { flex-direction: column; align-items: stretch; gap: 12px; }
-      .header-actions button { width: 100%; }
-      .sign-layout { grid-template-columns: 1fr; gap: 16px; }
-      .pdf-panel { min-height: 320px; border-radius: 12px; }
-      .side-panel { min-height: auto; border-radius: 12px; }
-      .signing-workflow { padding: 16px; gap: 18px; }
-      .saved-signatures-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
-      .comment-input { flex-direction: column; align-items: stretch; }
-      .comment-input button { width: 100%; margin-top: 8px; }
-    }
+      @media (max-width: 640px) {
+        .sign-root {
+          min-height: auto;
+          padding-bottom: 16px;
+        }
+        .sign-header {
+          padding: 0 12px;
+        }
+        .header-actions {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 12px;
+        }
+        .header-actions button {
+          width: 100%;
+        }
+        .sign-layout {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .pdf-panel {
+          min-height: 320px;
+          border-radius: 12px;
+        }
+        .side-panel {
+          min-height: auto;
+          border-radius: 12px;
+        }
+        .signing-workflow {
+          padding: 16px;
+          gap: 18px;
+        }
+        .saved-signatures-grid {
+          grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        }
+        .comment-input {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .comment-input button {
+          width: 100%;
+          margin-top: 8px;
+        }
+      }
 
-    .placements-list { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; max-height: 250px; overflow-y: auto; padding-right: 4px; }
-    .placement-item { display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border-color); animation: slideIn 0.2s ease-out; cursor: pointer; transition: all 0.2s; }
-    .placement-item:hover { border-color: var(--primary-color); background: white; }
-    .placement-item.selected { border-color: var(--primary-color); background: rgba(255, 122, 41, 0.05); box-shadow: 0 4px 12px rgba(255, 122, 41, 0.1); }
-    .placement-item .p-info { flex: 1; display: flex; flex-direction: column; }
-    .placement-item .p-info span { font-size: 12px; font-weight: 600; color: var(--accent-color); }
-    .placement-item .p-info small { font-size: 10px; color: var(--text-muted); font-weight: 700; opacity: 0.8; }
-    
-    .scale-header { display: flex; justify-content: space-between; align-items: center; }
-    .scale-header mat-icon { font-size: 14px; width: 14px; height: 14px; opacity: 0.5; cursor: help; }
-    
-    .empty-placements { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 32px 0; color: var(--text-muted); opacity: 0.6; }
-    .empty-placements mat-icon { font-size: 40px; width: 40px; height: 40px; }
-    .hint { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+      .placements-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 16px 0;
+        max-height: 250px;
+        overflow-y: auto;
+        padding-right: 4px;
+      }
+      .placement-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: #f8fafc;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
+        animation: slideIn 0.2s ease-out;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .placement-item:hover {
+        border-color: var(--primary-color);
+        background: white;
+      }
+      .placement-item.selected {
+        border-color: var(--primary-color);
+        background: rgba(255, 122, 41, 0.05);
+        box-shadow: 0 4px 12px rgba(255, 122, 41, 0.1);
+      }
+      .placement-item .p-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      .placement-item .p-info span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--accent-color);
+      }
+      .placement-item .p-info small {
+        font-size: 10px;
+        color: var(--text-muted);
+        font-weight: 700;
+        opacity: 0.8;
+      }
 
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .printed-warning { margin-top: 24px; padding: 16px; background: #fdf2ff; border: 1px dashed #a21caf; border-radius: 12px; display: flex; align-items: center; gap: 12px; color: #a21caf; }
-    .printed-warning mat-icon { font-size: 20px; width: 20px; height: 20px; }
-    .printed-warning p { margin: 0; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
-  `]
+      .scale-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .scale-header mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        opacity: 0.5;
+        cursor: help;
+      }
+
+      .empty-placements {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 32px 0;
+        color: var(--text-muted);
+        opacity: 0.6;
+      }
+      .empty-placements mat-icon {
+        font-size: 40px;
+        width: 40px;
+        height: 40px;
+      }
+      .hint {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .printed-warning {
+        margin-top: 24px;
+        padding: 16px;
+        background: #fdf2ff;
+        border: 1px dashed #a21caf;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #a21caf;
+      }
+      .printed-warning mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+      .printed-warning p {
+        margin: 0;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    `,
+  ],
 })
 export class DocumentSignComponent implements OnInit {
   private route = inject(ActivatedRoute);
@@ -349,7 +838,7 @@ export class DocumentSignComponent implements OnInit {
 
   placements = signal<SignaturePlacement[]>([]);
   selectedPlacementIndex = signal<number | null>(null);
-  lastPos = signal<{ x: number, y: number, page: number } | null>(null);
+  lastPos = signal<{ x: number; y: number; page: number } | null>(null);
   signatureScale = signal<number>(1);
 
   filteredAssignedSigners = computed(() => {
@@ -363,10 +852,10 @@ export class DocumentSignComponent implements OnInit {
   previewSignatures = computed(() => {
     const doc = this.doc();
     if (!doc) return [];
-    
+
     // Existing extra signatures (if any)
     const existingExtra = doc.extraSignatures || [];
-    
+
     // Create a special signer for the current preview
     const previewSigner: any = {
       userId: 'PREVIEW',
@@ -374,7 +863,7 @@ export class DocumentSignComponent implements OnInit {
       signatureImageId: this.mySignature()?.imageUrl,
       placements: this.placements(),
       status: 'SIGNED',
-      selectedIndex: this.selectedPlacementIndex() // Pass selection to PDF viewer
+      selectedIndex: this.selectedPlacementIndex(), // Pass selection to PDF viewer
     };
 
     return [...existingExtra, previewSigner];
@@ -385,7 +874,7 @@ export class DocumentSignComponent implements OnInit {
     const userId = this.auth.currentUserId();
 
     if (id) {
-      this.docService.getDocumentById(id).subscribe(d => {
+      this.docService.getDocumentById(id).subscribe((d) => {
         if (!d) return;
         this.doc.set(d);
         // Load existing placements for editing if user already signed
@@ -397,17 +886,18 @@ export class DocumentSignComponent implements OnInit {
     }
 
     if (userId) {
-      this.sigService.getSignaturesByUser(userId).pipe(
-        map(sigs => sigs.filter(s => s.isActive))
-      ).subscribe(sigs => {
-        this.userSignatures.set(sigs);
-        if (sigs.length > 0) {
-          this.mySignature.set(sigs[0]);
-          this.step.set(1); // Stay on step 1 to show selection
-        } else {
-          this.step.set(2); // No signature, go to drawing
-        }
-      });
+      this.sigService
+        .getSignaturesByUser(userId)
+        .pipe(map((sigs) => sigs.filter((s) => s.isActive)))
+        .subscribe((sigs) => {
+          this.userSignatures.set(sigs);
+          if (sigs.length > 0) {
+            this.mySignature.set(sigs[0]);
+            this.step.set(1); // Stay on step 1 to show selection
+          } else {
+            this.step.set(2); // No signature, go to drawing
+          }
+        });
     }
   }
 
@@ -419,17 +909,17 @@ export class DocumentSignComponent implements OnInit {
     return d.assignedSigners.some((s: any) => s.userId === userId);
   }
 
-  onPositionSelected(pos: { x: number, y: number, page: number }) {
+  onPositionSelected(pos: { x: number; y: number; page: number }) {
     if (!this.canSign()) return;
     this.lastPos.set(pos);
     const newPlacement = { ...pos, scale: this.signatureScale() };
-    this.placements.update(all => [...all, newPlacement]);
+    this.placements.update((all) => [...all, newPlacement]);
     // Auto-select the last one placed
     this.selectedPlacementIndex.set(this.placements().length - 1);
   }
 
-  onSignatureMoved(event: { index: number, x: number, y: number }) {
-    this.placements.update(all => {
+  onSignatureMoved(event: { index: number; x: number; y: number }) {
+    this.placements.update((all) => {
       const copy = [...all];
       if (copy[event.index]) {
         copy[event.index] = { ...copy[event.index], x: event.x, y: event.y };
@@ -443,11 +933,11 @@ export class DocumentSignComponent implements OnInit {
   }
 
   removePlacement(index: number) {
-    this.placements.update(all => all.filter((_, i) => i !== index));
+    this.placements.update((all) => all.filter((_, i) => i !== index));
     if (this.selectedPlacementIndex() === index) {
       this.selectedPlacementIndex.set(null);
     } else if (this.selectedPlacementIndex()! > index) {
-      this.selectedPlacementIndex.update(idx => idx! - 1);
+      this.selectedPlacementIndex.update((idx) => idx! - 1);
     }
   }
 
@@ -455,11 +945,11 @@ export class DocumentSignComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     const scale = parseFloat(input.value);
     this.signatureScale.set(scale);
-    
+
     // Update selected placement's scale if any
     const idx = this.selectedPlacementIndex();
     if (idx !== null) {
-      this.placements.update(all => {
+      this.placements.update((all) => {
         const copy = [...all];
         if (copy[idx]) {
           copy[idx] = { ...copy[idx], scale };
@@ -475,7 +965,7 @@ export class DocumentSignComponent implements OnInit {
   }
 
   onSignatureCreated(blob: Blob) {
-    this.sigService.uploadSignature(blob, this.auth.currentUserId()).subscribe(sig => {
+    this.sigService.uploadSignature(blob, this.auth.currentUserId()).subscribe((sig) => {
       this.mySignature.set(sig);
       this.step.set(3);
     });
@@ -489,27 +979,31 @@ export class DocumentSignComponent implements OnInit {
     if (!this.canConfirm()) return;
 
     this.loading.set(true);
-    
-    this.docService.signDocument(this.doc()!.id, {
-      placements: this.placements(),
-      signatureImageId: this.mySignature()!.imageUrl,
-      userId: this.auth.currentUserId()
-    }).subscribe({
-      next: (updated) => {
-        this.doc.set(updated);
-        this.loading.set(false);
-        this.snack.open('Documento firmado con éxito', 'Cerrar', { duration: 3000 });
-        this.router.navigate(['/documents']);
-      },
-      error: () => this.loading.set(false)
-    });
+
+    this.docService
+      .signDocument(this.doc()!.id, {
+        placements: this.placements(),
+        signatureImageId: this.mySignature()!.imageUrl,
+        userId: this.auth.currentUserId(),
+      })
+      .subscribe({
+        next: (updated) => {
+          this.doc.set(updated);
+          this.loading.set(false);
+          this.snack.open('Documento firmado con éxito', 'Cerrar', { duration: 3000 });
+          this.router.navigate(['/documents']);
+        },
+        error: () => this.loading.set(false),
+      });
   }
 
   addComment(content: string) {
     if (!content.trim()) return;
     const user = this.auth.currentUser();
-    this.docService.addComment(this.doc()!.id, content, user!.id, user!.name).subscribe(newComment => {
-      this.doc.update(d => ({ ...d, comments: [newComment, ...d.comments] }));
-    });
+    this.docService
+      .addComment(this.doc()!.id, content, user!.id, user!.name)
+      .subscribe((newComment) => {
+        this.doc.update((d) => ({ ...d, comments: [newComment, ...d.comments] }));
+      });
   }
 }

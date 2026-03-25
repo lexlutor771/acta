@@ -5,6 +5,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SettingsService } from '../../../core/services/settings.service';
 import { DialogService } from '../../../core/services/dialog.service';
@@ -12,30 +13,44 @@ import { DialogService } from '../../../core/services/dialog.service';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    TranslateModule,
+  ],
   template: `
     <div class="login-page">
       <div class="glass-panel login-card">
         <div class="login-header">
-          <img [src]="companyLogoUrl()" alt="Logo Empresa" class="logo-img" (error)="companyLogoUrl.set('/assets/logo-afi.png')">
-          <h1>Bienvenido</h1>
-          <p>Ingrese su código PIN para continuar</p>
+          <img
+            [src]="companyLogoUrl()"
+            alt="Logo Empresa"
+            class="logo-img"
+            (error)="companyLogoUrl.set('/assets/logo-afi.png')"
+          />
+          <h1>{{ 'auth.welcome' | translate }}</h1>
+          <p>{{ 'auth.enterPin' | translate }}</p>
         </div>
 
         <form (submit)="onSubmit($event)" class="pin-form">
           <div class="pin-inputs">
-            <input #pinInput
-                   *ngFor="let digit of [0,1,2,3,4,5]; let i = index"
-                   type="password"
-                   maxlength="1"
-                   pattern="[0-9]*"
-                   inputmode="numeric"
-                   [(ngModel)]="pinDigits[i]"
-                   [name]="'pin' + i"
-                   (keyup)="onKeyUp($event, i)"
-                   (paste)="onPaste($event)"
-                   [disabled]="loading()"
-                   autocomplete="off">
+            <input
+              #pinInput
+              *ngFor="let digit of [0, 1, 2, 3, 4, 5]; let i = index"
+              type="password"
+              maxlength="1"
+              pattern="[0-9]*"
+              inputmode="numeric"
+              [(ngModel)]="pinDigits[i]"
+              [name]="'pin' + i"
+              (keyup)="onKeyUp($event, i)"
+              (paste)="onPaste($event)"
+              [disabled]="loading()"
+              autocomplete="off"
+            />
           </div>
 
           <div class="error-message" *ngIf="error()">
@@ -43,12 +58,14 @@ import { DialogService } from '../../../core/services/dialog.service';
             <span>{{ error() }}</span>
           </div>
 
-          <button mat-raised-button 
-                  color="primary" 
-                  class="submit-btn" 
-                  [disabled]="!isPinComplete() || loading()"
-                  type="submit">
-            <span *ngIf="!loading()">INGRESAR</span>
+          <button
+            mat-raised-button
+            color="primary"
+            class="submit-btn"
+            [disabled]="!isPinComplete() || loading()"
+            type="submit"
+          >
+            <span *ngIf="!loading()">{{ 'auth.login' | translate }}</span>
             <mat-spinner diameter="24" *ngIf="loading()"></mat-spinner>
           </button>
         </form>
@@ -59,123 +76,155 @@ import { DialogService } from '../../../core/services/dialog.service';
       </div>
     </div>
   `,
-  styles: [`
-    .login-page {
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-      position: relative;
-      overflow: hidden;
-    }
-    .login-page::before {
-      content: '';
-      position: absolute;
-      width: 600px;
-      height: 600px;
-      background: radial-gradient(circle, rgba(255, 122, 41, 0.05) 0%, transparent 70%);
-      top: -200px;
-      right: -200px;
-      border-radius: 50%;
-    }
-    .login-card {
-      width: 100%;
-      max-width: 420px;
-      padding: 64px 48px;
-      text-align: center;
-      background: white;
-      border-radius: 24px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.01);
-      z-index: 1;
-    }
-    .logo-img {
-      height: 60px;
-      width: auto;
-      margin-bottom: 32px;
-      display: inline-block;
-    }
-    h1 {
-      font-size: 32px;
-      font-weight: 800;
-      margin-bottom: 8px;
-      color: var(--accent-color);
-    }
-    p {
-      color: var(--text-muted);
-      font-size: 15px;
-      margin-bottom: 40px;
-    }
-    .pin-inputs {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      margin-bottom: 32px;
-    }
-    .pin-inputs input {
-      width: 48px;
-      height: 64px;
-      font-size: 28px;
-      text-align: center;
-      background: #f1f5f9;
-      border: 2px solid transparent;
-      border-radius: 12px;
-      color: var(--accent-color);
-      font-weight: 700;
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .pin-inputs input:focus {
-      outline: none;
-      border-color: var(--primary-color);
-      background: white;
-      box-shadow: 0 0 0 4px rgba(255, 122, 41, 0.1);
-      transform: translateY(-2px);
-    }
-    .submit-btn {
-      width: 100%;
-      height: 56px !important;
-      border-radius: 16px !important;
-      font-weight: 700 !important;
-      font-size: 16px !important;
-      letter-spacing: 0.5px !important;
-    }
-    .error-message {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      color: #ef4444;
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 24px;
-      animation: shake 0.4s;
-    }
-    .login-footer {
-      margin-top: 48px;
-      font-size: 12px;
-      color: var(--text-muted);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      opacity: 0.6;
-    }
+  styles: [
+    `
+      .login-page {
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        position: relative;
+        overflow: hidden;
+      }
+      .login-page::before {
+        content: '';
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(255, 122, 41, 0.05) 0%, transparent 70%);
+        top: -200px;
+        right: -200px;
+        border-radius: 50%;
+      }
+      .login-card {
+        width: 100%;
+        max-width: 420px;
+        padding: 64px 48px;
+        text-align: center;
+        background: white;
+        border-radius: 24px;
+        box-shadow:
+          0 20px 25px -5px rgba(0, 0, 0, 0.05),
+          0 10px 10px -5px rgba(0, 0, 0, 0.01);
+        z-index: 1;
+      }
+      .logo-img {
+        height: 60px;
+        width: auto;
+        margin-bottom: 32px;
+        display: inline-block;
+      }
+      h1 {
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        color: var(--accent-color);
+      }
+      p {
+        color: var(--text-muted);
+        font-size: 15px;
+        margin-bottom: 40px;
+      }
+      .pin-inputs {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 32px;
+      }
+      .pin-inputs input {
+        width: 48px;
+        height: 64px;
+        font-size: 28px;
+        text-align: center;
+        background: #f1f5f9;
+        border: 2px solid transparent;
+        border-radius: 12px;
+        color: var(--accent-color);
+        font-weight: 700;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .pin-inputs input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        background: white;
+        box-shadow: 0 0 0 4px rgba(255, 122, 41, 0.1);
+        transform: translateY(-2px);
+      }
+      .submit-btn {
+        width: 100%;
+        height: 56px !important;
+        border-radius: 16px !important;
+        font-weight: 700 !important;
+        font-size: 16px !important;
+        letter-spacing: 0.5px !important;
+      }
+      .error-message {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #ef4444;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 24px;
+        animation: shake 0.4s;
+      }
+      .login-footer {
+        margin-top: 48px;
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.6;
+      }
 
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-5px); }
-      75% { transform: translateX(5px); }
-    }
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-5px);
+        }
+        75% {
+          transform: translateX(5px);
+        }
+      }
 
-    @media (max-width: 520px) {
-      .login-card { padding: 40px 3px; margin: 0 16px; }
-      .login-header h1 { font-size: 28px; }
-      .login-header p { font-size: 14px; margin-bottom: 28px; }
-      .pin-inputs { gap: 10px; margin-bottom: 24px; }
-      .pin-inputs input { width: 42px; height: 56px; font-size: 24px; }
-      .submit-btn { height: 52px !important; font-size: 15px !important; }
-      .login-footer { margin-top: 32px; font-size: 11px; }
-    }
-  `]
+      @media (max-width: 520px) {
+        .login-card {
+          padding: 40px 3px;
+          margin: 0 16px;
+        }
+        .login-header h1 {
+          font-size: 28px;
+        }
+        .login-header p {
+          font-size: 14px;
+          margin-bottom: 28px;
+        }
+        .pin-inputs {
+          gap: 10px;
+          margin-bottom: 24px;
+        }
+        .pin-inputs input {
+          width: 42px;
+          height: 56px;
+          font-size: 24px;
+        }
+        .submit-btn {
+          height: 52px !important;
+          font-size: 15px !important;
+        }
+        .login-footer {
+          margin-top: 32px;
+          font-size: 11px;
+        }
+      }
+    `,
+  ],
 })
 export class LoginComponent {
   @ViewChildren('pinInput') pinInputs!: QueryList<ElementRef<HTMLInputElement>>;
@@ -185,6 +234,7 @@ export class LoginComponent {
   private route = inject(ActivatedRoute);
   private settingsService = inject(SettingsService);
   private dialogService = inject(DialogService);
+  private translate = inject(TranslateService);
 
   pinDigits: string[] = ['', '', '', '', '', ''];
   loading = signal(false);
@@ -192,7 +242,7 @@ export class LoginComponent {
   companyLogoUrl = signal<string>('/assets/logo-afi.png');
 
   constructor() {
-    this.settingsService.getSettings().subscribe(s => {
+    this.settingsService.getSettings().subscribe((s) => {
       if (s?.companyLogoUrl) {
         this.companyLogoUrl.set(s.companyLogoUrl);
       }
@@ -200,7 +250,7 @@ export class LoginComponent {
   }
 
   isPinComplete(): boolean {
-    return this.pinDigits.every(d => d.length === 1);
+    return this.pinDigits.every((d) => d.length === 1);
   }
 
   onKeyUp(event: KeyboardEvent, index: number) {
@@ -258,7 +308,10 @@ export class LoginComponent {
 
               if (now > expireDate) {
                 this.authService.logout();
-                this.dialogService.error('Licencia Expirada', 'El período de licencia de este sistema ha finalizado. Por favor, contacte con el administrador.');
+                this.dialogService.error(
+                  this.translate.instant('auth.licenseExpired'),
+                  this.translate.instant('auth.licenseExpiredMessage'),
+                );
                 this.loading.set(false);
                 this.pinDigits = ['', '', '', '', '', ''];
                 setTimeout(() => this.pinInputs?.toArray()[0]?.nativeElement.focus(), 0);
@@ -269,13 +322,15 @@ export class LoginComponent {
               const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
               if (daysLeft > 0 && daysLeft <= 5) {
-                this.dialogService.warning(
-                  'Licencia por expirar',
-                  `La licencia de uso del sistema caducará en ${daysLeft - 1} día(s). Por favor, contacte a soporte para la renovación.`
-                ).subscribe(() => {
-                  const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
-                  this.router.navigate([returnUrl]);
-                });
+                this.dialogService
+                  .warning(
+                    this.translate.instant('auth.licenseExpiring'),
+                    this.translate.instant('auth.licenseExpiringMessage', { days: daysLeft - 1 }),
+                  )
+                  .subscribe(() => {
+                    const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
+                    this.router.navigate([returnUrl]);
+                  });
                 return;
               }
             }
@@ -286,15 +341,15 @@ export class LoginComponent {
             // Si hay error leyendo configuración, permitimos ingreso por precaución
             const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
             this.router.navigate([returnUrl]);
-          }
+          },
         });
       },
       error: (err) => {
-        this.error.set('PIN incorrecto. Intente de nuevo.');
+        this.error.set(this.translate.instant('auth.invalidPin'));
         this.loading.set(false);
         this.pinDigits = ['', '', '', '', '', ''];
         setTimeout(() => this.pinInputs?.toArray()[0]?.nativeElement.focus(), 0);
-      }
+      },
     });
   }
 }
